@@ -78,6 +78,28 @@ export function readFields(form, fields) {
   return record;
 }
 
+function validImport(info, collection) {
+  if (info === undefined) return true;
+  if (collection === 'workouts') {
+    return info?.provider === 'apple' || (info?.provider === 'ironlog' && Array.isArray(info.exercises)
+      && info.exercises.length <= 100 && info.exercises.every(exercise => validText(exercise?.name, 100)
+        && Array.isArray(exercise.sets) && exercise.sets.length <= 60 && exercise.sets.every(set =>
+          Number.isFinite(set?.reps) && set.reps > 0 && set.reps <= 2000
+          && (set.kg === null || Number.isFinite(set.kg) && set.kg >= 0 && set.kg <= 10000))));
+  }
+  return collection === 'expenses' && ['blinkit', 'zomato'].includes(info?.provider)
+    && validText(info.orderId, 50, true) && Array.isArray(info.items) && info.items.length <= 100
+    && info.items.every(item => validText(item?.name, 100) && (item.quantity === null
+      || Number.isSafeInteger(item.quantity) && item.quantity > 0 && item.quantity <= 999));
+}
+
+function validMeasurement(item) {
+  return validText(item?.id, 100) && validDate(item.date) && validText(item.source, 100)
+    && ['apple', 'shortcut'].includes(item.provider) && ['weight', 'bodyFat'].includes(item.kind)
+    && (item.time === null || Number.isFinite(item.time))
+    && Number.isFinite(item.value) && item.value > 0 && item.value <= (item.kind === 'weight' ? 1500 : 100);
+}
+
 export function workspaceFromBackup(input) {
   const data = input?.data;
   if (input?.format !== 'fitness-agent-workspace' || data?.version !== 1 || !validFields(data.profile, profileFields)) {
@@ -85,10 +107,15 @@ export function workspaceFromBackup(input) {
   }
   for (const [key, config] of Object.entries(kinds)) {
     const records = data[key];
-    if (!Array.isArray(records) || records.length > 50000 || !records.every(record =>
-      validFields(record, config.fields) && validText(record.id, 100) && validText(record.created, 50) &&
-      (key !== 'groceries' || typeof record.done === 'boolean') &&
-      (key !== 'routines' || record.doneOn === null || validDate(record.doneOn))) ||
+    const validRecord = record => {
+      const importedWorkout = key === 'workouts' && ['ironlog', 'apple'].includes(record?.imported?.provider);
+      const fields = importedWorkout && record.minutes === 0 ? config.fields.filter(([field]) => field !== 'minutes') : config.fields;
+      return validFields(record, fields) && validText(record.id, 100) && validText(record.created, 50) &&
+        validImport(record.imported, key) &&
+        (key !== 'groceries' || typeof record.done === 'boolean') &&
+        (key !== 'routines' || record.doneOn === null || validDate(record.doneOn));
+    };
+    if (!Array.isArray(records) || records.length > 50000 || !records.every(validRecord) ||
       new Set(records.map(record => record.id)).size !== records.length) {
       throw new Error(`The backup has invalid ${key} data.`);
     }
@@ -99,7 +126,12 @@ export function workspaceFromBackup(input) {
   }
   const { profile, messages, version } = data;
   const records = Object.fromEntries(Object.keys(kinds).map(key => [key, data[key]]));
-  return { profile, messages, version, ...records };
+  const health = data.health === undefined ? [] : data.health;
+  if (!Array.isArray(health) || health.length > 50000 || !health.every(validMeasurement)
+    || new Set(health.map(item => item.id)).size !== health.length) {
+    throw new Error('The backup has invalid health measurements.');
+  }
+  return { profile, messages, version, ...records, health };
 }
 
 export const defaults = {

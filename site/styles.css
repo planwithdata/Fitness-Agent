@@ -189,3 +189,16 @@ hr { width: 100%; border: 0; border-top: 1px solid var(--line); }
 @media (prefers-reduced-motion: no-preference) {
   .btn, .metric, .desktop-nav a { transition: background .15s, border-color .15s; }
 }
+.import-status { font-size: .84rem; color: var(--mint); }
+.import-list, .import-details ul { margin: 0; padding-inline-start: 1.2rem; font-size: .83rem; line-height: 1.65; }
+.import-details { margin-top: 7px; color: var(--muted); font-size: .79rem; }
+.import-details summary { color: var(--mint); cursor: pointer; width: fit-content; }
+.import-details ul { overflow-wrap: anywhere; padding-top: 5px; }
+.receipt-preview { border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0; }
+.receipt-preview .option-check { overflow-wrap: anywhere; }
+.measurement-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(135px, 100%), 1fr)); gap: 9px; }
+.measurement-grid > div { border-radius: 9px; background: #101722; border: 1px solid var(--line); padding: 10px; }
+.measurement-grid small, .measurement-grid strong { display: block; overflow-wrap: anywhere; }
+.measurement-grid small { color: var(--muted); font-size: .72rem; }
+.measurement-grid strong { font-size: 1.28rem; margin: 3px 0; }
+.diary-match { color: var(--mint); text-decoration: underline; padding-inline: 5px; white-space: nowrap; }

@@ -3,9 +3,22 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "start": "node serve.mjs",
-    "test": "node --test --experimental-test-isolation=none"
+    "test": "node --test --experimental-test-isolation=none",
+    "build": "node scripts/prepare-imports.mjs",
+    "prestart": "npm run build",
+    "pretest": "npm run build"
+  },
+  "dependencies": {
+    "fflate": "0.8.3",
+    "pdfjs-dist": "6.5.438",
+    "saxes": "6.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
   }
 }

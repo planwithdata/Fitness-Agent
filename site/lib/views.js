@@ -1,5 +1,6 @@
 import { today } from '../nutrition/core.js';
 import { brief, format, money, expenseTypes } from './domain.js';
+import { providers } from './import-model.js';
 import { prompts } from './coach.js';
 import { icon } from './shell.js';
 import { dateText, kinds, profileFields, templates } from './records.js';
@@ -94,25 +95,53 @@ function editButtons(key, item) {
     </div>`;
 }
 
-function record(key, item, title, subtitle, toggle = null) {
+function record(key, item, title, subtitle, toggle = null, { detail = '', readonly = false } = {}) {
   const config = kinds[key];
   return `<div class="record${toggle ? ' done' : ''}">
     ${toggle === null ? tile(config.icon, config.tone)
       : `<button class="icon-btn toggle" data-action="toggle:${key}" data-id="${escape(item.id)}" aria-label="Mark ${escape(title)} complete" aria-pressed="${toggle}" type="button">${icon('check', 17)}</button>`}
-    <div class="record-body"><strong>${escape(title)}</strong><small>${escape(subtitle)}</small></div>${editButtons(key, item)}</div>`;
+    <div class="record-body"><strong>${escape(title)}</strong><small>${escape(subtitle)}</small>${detail}</div>${readonly ? '' : editButtons(key, item)}</div>`;
 }
 
-export function workouts(workspace, data) {
+function exerciseDetail(item) {
+  const exercises = item.imported?.exercises;
+  if (!exercises?.length) return '';
+  return `<details class="import-details"><summary>Working sets</summary><ul>${exercises.map(exercise =>
+    `<li>${escape(exercise.name)} · ${exercise.sets.map(set => set.reps + ' reps' + (set.kg === null ? '' : ' × ' + set.kg + ' kg')).join(', ')}</li>`).join('')}</ul></details>`;
+}
+
+function healthMeasurements(health) {
+  const recent = [...health].sort((a, b) => b.date.localeCompare(a.date) || (b.time ?? 0) - (a.time ?? 0));
+  if (!recent.length) return empty('Import Apple Health readings to see weight and body fat here.');
+  const headline = ['weight', 'bodyFat'].map(kind => recent.find(item => item.kind === kind)).filter(Boolean);
+  const describe = item => `${item.value}${item.kind === 'weight' ? ' kg' : '%'}`;
+  return `<div class="measurement-grid">${headline.map(item => `<div>
+    <small>${item.kind === 'weight' ? 'Latest weight' : 'Latest body fat'}</small>
+    <strong>${describe(item)}</strong><small>${escape(item.date)} · ${escape(item.source)}</small>
+    </div>`).join('')}</div>
+    <details class="import-details"><summary>Recent measurements</summary><ul>${recent.slice(0, 12).map(item =>
+    `<li>${escape(item.date)} · ${describe(item)} · ${escape(item.source)}</li>`).join('')}</ul></details>`;
+}
+
+export function workouts(workspace, data, isLinked = () => false) {
   const goal = workspace.profile.workoutGoal;
   const recent = [...workspace.workouts].sort((a, b) => b.date.localeCompare(a.date) || b.created.localeCompare(a.created));
   return `${pageHead('MOVEMENT', 'Workouts', 'Build a record of how you move.', btn('Log workout', 'add:workouts'))}
     <div class="split">
       ${card('Workout log', 'Most recent sessions first', recent.length
-        ? `<div class="records">${recent.map(item => record('workouts', item, item.name, `${dateText(item.date)} · ${item.type} · ${item.minutes} min${item.notes ? ' · ' + item.notes : ''}`)).join('')}</div>`
-        : empty('Log a walk, training session, or sport to begin.'))}
+        ? `<div class="records">${recent.map(item => {
+          const duration = item.minutes ? item.minutes + ' min' : 'Duration unavailable';
+          const source = item.imported && providers[item.imported.provider];
+          const subtitle = [dateText(item.date), item.type, duration, source, item.notes].filter(Boolean).join(' · ');
+          return record('workouts', item, item.name, subtitle, null, { detail: exerciseDetail(item), readonly: isLinked(item.id) });
+        }).join('')}</div>`
+        : empty('Log a walk, training session, or sport to begin.'), link('Import', '#imports'))}
+      <div class="pane">
       ${card('Rolling 7-day progress', 'Includes today and the previous six days', `<p class="big-number">${format(data.minutes)} min</p>
         ${progress(data.minutes, goal)}<p class="muted">${data.workouts.length} workouts${goal ? ` · ${goal} min target` : ''}</p>
         ${link('Edit movement target', '#settings')}`)}
+      ${card('Body measurements', 'From Apple Health and weight files', healthMeasurements(workspace.health ?? []))}
+      </div>
     </div>`;
 }
 
@@ -141,6 +170,16 @@ export function planner(workspace, data, date) {
     </div></div>`;
 }
 
+function receiptDetail(item) {
+  const receipt = item.imported;
+  if (!receipt?.items?.length) return '';
+  return `<details class="import-details"><summary>${receipt.items.length} receipt items</summary><ul>
+    ${receipt.items.map(line => `<li>${escape(line.name)}${line.quantity ? ' × ' + line.quantity : ''}
+      ${receipt.provider === 'zomato' ? `<a class="diary-match" data-diary-query="${escape(line.name)}"
+        href="./nutrition/#foods" aria-label="Find ${escape(line.name)} in the food diary">Find in diary</a>` : ''}
+    </li>`).join('')}</ul></details>`;
+}
+
 export function spending(workspace, data) {
   const budget = workspace.profile.budget;
   const monthExpenses = workspace.expenses.filter(item => item.date.startsWith(data.month))
@@ -148,11 +187,12 @@ export function spending(workspace, data) {
   const history = workspace.expenses.filter(item => !item.date.startsWith(data.month))
     .sort((a, b) => b.date.localeCompare(a.date) || b.created.localeCompare(a.created));
   const render = list => list.map(item => record('expenses', item, item.name,
-    `${dateText(item.date)} · ${item.type} · ${money(item.amount)}`)).join('');
+    [dateText(item.date), item.type, money(item.amount), item.imported && providers[item.imported.provider]].filter(Boolean).join(' · '),
+    null, { detail: receiptDetail(item) })).join('');
   const month = dayDate(data.day).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
   return `${pageHead('FOOD BUDGET', 'Spending', 'See what you spend on groceries, delivery, and dining out.', btn('Add expense', 'add:expenses'))}
     <div class="split">
-      <div class="pane">${card('This month', month, monthExpenses.length ? render(monthExpenses) : empty('Add an expense to start tracking your food spending.'))}
+      <div class="pane">${card('This month', month, monthExpenses.length ? render(monthExpenses) : empty('Add an expense to start tracking your food spending.'), link('Read receipts', '#imports'))}
       ${history.length ? card('Past expenses', 'All records outside the current month', render(history)) : ''}</div>
       <div class="pane">${card('Monthly budget', month, `<p class="big-number">${money(data.spent)}</p>
       ${progress(data.spent, budget)}
@@ -220,11 +260,12 @@ export function settings(workspace) {
         ${btn('Export workspace', 'backup', 'download', '')}${btn('Restore workspace', 'restore', 'download', '')}
         <input type="file" id="restore-file" accept=".json,application/json" hidden></div>
         ${link('Import or export your food diary', './nutrition/#settings')}`)}
-      ${card('Connected services', 'Manual entries and local imports are available.', `<div class="integrations">
+      ${card('Imports and linked apps', 'Bring in IronLog workouts, Apple Health measurements, and Blinkit or Zomato receipts.', link('Open Imports', '#imports'))}
+      ${card('Connected services', 'Review the available data sources.', `<div class="integrations">
         <div><span>Food diary</span><span class="pill">Built in</span></div>
-        <div><span>Zomato</span><span class="pill">Manual expense</span></div>
-        <div><span>Blinkit</span><span class="pill">Manual grocery list</span></div>
-        <div><span>Apple Health</span><span class="pill">Manual workout</span></div>
+        <div><span>Zomato</span><span class="pill">Receipt import</span></div>
+        <div><span>Blinkit</span><span class="pill">Receipt import</span></div>
+        <div><span>Apple Health</span><span class="pill">File import</span></div>
       </div>`)}
     </div></div>`;
 }

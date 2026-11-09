@@ -1,5 +1,7 @@
 import { today } from './nutrition/core.js';
 import { loadDiary, openDiary } from './nutrition/storage.js';
+import { createImports, importsPage } from './lib/imports-ui.js';
+import { ironLogPreference, ironLogStorageKey } from './lib/import-model.js';
 import { localReply, modelContext, prompts } from './lib/coach.js';
 import { groceryDraft, snapshot } from './lib/domain.js';
 import { defaults, kinds, profileFields, readFields, templates, workspaceFromBackup } from './lib/records.js';
@@ -14,11 +16,13 @@ const toast = $('.toast');
 const model = Boolean(document.querySelector('meta[name="fitness-agent-model"]'));
 const broadcast = 'BroadcastChannel' in window ? new BroadcastChannel('fitness-agent-v1') : null;
 const views = { today: dashboard, workout: workouts, planner, spending, settings };
-const routes = new Set([...Object.keys(views), 'coach']);
+const routes = new Set([...Object.keys(views), 'coach', 'imports']);
 let db, diaryDb, diary, state, activeView, lastDay, toastTimer, offlineReady, refreshing;
 let coachBusy = false;
 let workspaceRevision = 0;
 let planDate = today();
+const imports = createImports({ getState: () => state, edit, render, notify, modalForm });
+const workspaceView = () => ({ ...state, workouts: imports.visibleWorkouts(state.workouts) });
 
 function route() {
   const hash = location.hash.slice(1);
@@ -47,13 +51,17 @@ function render() {
   const hadChatFocus = page === 'coach' && document.activeElement?.matches('#coach-form input');
   if (lastDay && planDate === lastDay) planDate = today();
   lastDay = today();
-  const data = snapshot(state, diary, lastDay);
+  const workspace = workspaceView();
+  const data = snapshot(workspace, diary, lastDay);
   if (changed) {
     renderShell(page);
     document.title = `Fitness Agent · ${sections[page]}`;
     activeView = page;
   }
-  main.innerHTML = page === 'coach' ? coach(state, model, coachBusy) : views[page](state, data, planDate);
+  if (page === 'coach') main.innerHTML = coach(workspace, model, coachBusy);
+  else if (page === 'imports') main.innerHTML = importsPage(state, imports.getInfo());
+  else if (page === 'workout') main.innerHTML = workouts(workspace, data, imports.isLinked);
+  else main.innerHTML = views[page](workspace, data, planDate);
   if (page === 'coach') {
     const log = $('.chat-log');
     log.scrollTop = log.scrollHeight;
@@ -87,8 +95,11 @@ function modalForm(title, body, label, submit, tone) {
     const submitButton = form.querySelector('[type="submit"]');
     submitButton.disabled = true;
     try {
-      await submit(form);
-      dialog.close();
+      const after = await submit(form);
+      if (form.isConnected && dialog.open) {
+        dialog.close();
+        if (typeof after === 'function') after();
+      }
     } catch (error) {
       const note = form.querySelector('.form-error');
       note.textContent = error.message;
@@ -169,19 +180,20 @@ async function restoreWorkspace(file) {
 async function ask(question) {
   const text = question.trim();
   if (!text || text.length > 500 || coachBusy) return;
-  const data = snapshot(state, diary);
+  const workspace = workspaceView();
+  const data = snapshot(workspace, diary);
   const useModel = model && $('#use-model')?.checked;
   coachBusy = true;
   render();
   try {
     let role = 'local';
-    let answer = localReply(text, data, state);
+    let answer = localReply(text, data, workspace);
     if (useModel) {
       try {
         const response = await fetch('./api/coach', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Fitness-Agent': 'coach' },
-          body: JSON.stringify({ question: text, context: modelContext(data, state) }),
+          body: JSON.stringify({ question: text, context: modelContext(data, workspace) }),
           signal: AbortSignal.timeout(35000),
         });
         if (!response.ok) throw new Error('Model request failed.');
@@ -204,6 +216,7 @@ async function ask(question) {
 }
 
 const actions = {
+  ...imports.actions,
   quick: () => showDialog('Quick add', `<div class="stack">
     <a class="btn mint" href="./nutrition/#diary">${icon('nutrition', 17)} Log food</a>
     ${btn('Log workout', 'add:workouts', 'workout', '')}
@@ -246,6 +259,11 @@ document.addEventListener('click', async event => {
     main.focus();
     return;
   }
+  const diaryLink = event.target.closest('[data-diary-query]');
+  if (diaryLink) {
+    try { sessionStorage.setItem('fitness-agent:diary-query', diaryLink.dataset.diaryQuery); } catch { /* Catalog link remains usable. */ }
+    return;
+  }
   const target = event.target.closest('button[data-action], button[data-close]');
   if (!target || !state) return;
   if (target.hasAttribute('data-close')) {
@@ -274,6 +292,12 @@ document.addEventListener('submit', async event => {
 
 document.addEventListener('change', async ({ target }) => {
   try {
+    if (target.dataset.import && target.files) {
+      const files = [...target.files];
+      target.value = '';
+      await imports.onFiles(target.dataset.import, files);
+      return;
+    }
     if (target.id === 'plan-date' && target.value) {
       planDate = target.value;
       render();
@@ -308,8 +332,17 @@ window.addEventListener('hashchange', () => {
   window.scrollTo(0, 0);
   main.focus({ preventScroll: true });
 });
-window.addEventListener('pageshow', refresh);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+function refreshSources() {
+  if (imports.refreshIronLog()) render();
+  refresh();
+}
+
+window.addEventListener('pageshow', refreshSources);
+window.addEventListener('focus', refreshSources);
+window.addEventListener('storage', event => {
+  if ([ironLogPreference, ironLogStorageKey, null].includes(event.key) && imports.refreshIronLog()) render();
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshSources(); });
 broadcast?.addEventListener('message', refresh);
 
 async function start() {
@@ -317,6 +350,7 @@ async function start() {
   try {
     [db, diaryDb] = await Promise.all([openWorkspace(), openDiary()]);
     [state, diary] = await Promise.all([loadWorkspace(db), loadDiary(diaryDb)]);
+    imports.refreshIronLog();
     render();
   } catch {
     state = null;

@@ -10,7 +10,7 @@ export const format = value => new Intl.NumberFormat('en-IN', { maximumFractionD
 
 export function emptyWorkspace() {
   return { version: 1, profile: { name: '', workoutGoal: 150, budget: 0 }, workouts: [],
-    expenses: [], meals: [], groceries: [], routines: [], memory: [], messages: [] };
+    expenses: [], meals: [], groceries: [], routines: [], memory: [], messages: [], health: [] };
 }
 
 export function snapshot(workspace, diary, day = today()) {

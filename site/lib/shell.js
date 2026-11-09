@@ -20,6 +20,7 @@ const paths = {
   trash: '<path d="M3 6h18M9 6V3h6v3m4 0-1 15H6L5 6m5 4v7m4-7v7"/>',
   send: '<path d="M12 20V4m-6 6 6-6 6 6"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/>',
+  imports: '<path d="M12 3v11m-4-4 4 4 4-4M4 14v6h16v-6"/>',
   list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
   more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
@@ -29,7 +30,7 @@ export const icon = (name, size = 20) => `<svg aria-hidden="true" width="${size}
 
 export const sections = {
   today: 'Today', nutrition: 'Nutrition', workout: 'Workouts', planner: 'Planner',
-  spending: 'Spending', coach: 'Coach', settings: 'Settings',
+  spending: 'Spending', coach: 'Coach', settings: 'Settings', imports: 'Imports',
 };
 
 export function renderShell(page, root = './') {
@@ -42,7 +43,7 @@ export function renderShell(page, root = './') {
       <span class="nav-label">WORKSPACE</span>
       ${['today', 'nutrition', 'workout', 'planner', 'spending'].map(key => link(key)).join('')}
       <span class="nav-label nav-break">PREFERENCES</span>
-      ${link('coach')}${link('settings')}
+      ${link('coach')}${link('imports')}${link('settings')}
     </nav>
     <div class="rail-foot"><span class="rail-lock">${icon('lock', 16)}</span><span>On this device<small>Private workspace</small></span></div>
     <nav class="mobile-nav" aria-label="Workspace">

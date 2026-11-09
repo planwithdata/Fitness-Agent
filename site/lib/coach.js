@@ -10,6 +10,22 @@ export function localReply(question, data, workspace) {
       ? 'Your saved preferences:\n' + workspace.memory.map(item => '• ' + item.text).join('\n')
       : 'Your memory is empty. Add a preference or habit in the Memory panel and you can edit or remove it there.';
   }
+  if (/purchase|bought|buy often|go-to|go to items/.test(query)) {
+    const list = new Map();
+    for (const expense of workspace.expenses) {
+      if (expense.imported?.provider !== 'blinkit') continue;
+      for (const item of expense.imported.items) {
+        const key = item.name.toLocaleLowerCase('en-IN');
+        const current = list.get(key);
+        if (current) current.orders++;
+        else list.set(key, { name: item.name, orders: 1 });
+      }
+    }
+    const frequent = [...list.values()].sort((a, b) => b.orders - a.orders).slice(0, 5);
+    return frequent.length ? 'Your most frequent items from imported Blinkit receipts:\n' + frequent.map(item =>
+      `• ${item.name} · ${item.orders} ${item.orders === 1 ? 'order' : 'orders'}`).join('\n')
+      : 'I don’t have any Blinkit line items yet. Open Imports to read your receipts.';
+  }
   if (/budget|spend|cost|expense|delivery/.test(query)) {
     const budget = workspace.profile.budget;
     const remaining = budget - data.spent;
@@ -25,6 +41,13 @@ export function localReply(question, data, workspace) {
     const preference = data.diet === 'any' ? '' : ` Your food diary is set to ${data.diet}.`;
     const memory = workspace.memory.filter(item => item.kind === 'Food').slice(0, 2);
     return plan + staples + preference + (memory.length ? ' Food notes you saved: ' + memory.map(item => item.text).join(' • ') : '');
+  }
+  if (/body fat|body weight|weigh[- ]?in|weight trend/.test(query)) {
+    const kind = /body fat/.test(query) ? 'bodyFat' : 'weight';
+    const sample = [...(workspace.health ?? [])].filter(item => item.kind === kind)
+      .sort((a, b) => b.date.localeCompare(a.date) || (b.time ?? 0) - (a.time ?? 0))[0];
+    if (!sample) return 'There are no readings for that measurement. Open Imports to add your Apple Health data.';
+    return `Your latest imported ${kind === 'weight' ? 'weight' : 'body-fat reading'} was ${sample.value} ${kind === 'weight' ? 'kg' : '%'} on ${sample.date}, from ${sample.source}.`;
   }
   if (/workout|exercise|train|movement|fitness/.test(query)) {
     const target = workspace.profile.workoutGoal;
@@ -46,7 +69,7 @@ export function localReply(question, data, workspace) {
       .map(item => `${item.time} · ${item.name}`).join(', ') + '.' : 'You have no open routines today. Add a daily check-in from Planner.';
   }
   if (/today|day|summary|going|overview/.test(query)) return brief(data, workspace);
-  return 'The local coach can review your day, nutrition, workouts, meal plan, grocery list, routines, budget, or saved memory. Try “How is my day going?”';
+  return 'The local coach can review your day, nutrition, workouts, meal plan, grocery list, routines, budget, purchases, body measurements, or saved memory. Try “How is my day going?”';
 }
 
 export function modelContext(data, workspace) {

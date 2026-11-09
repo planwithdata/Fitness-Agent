@@ -8,25 +8,42 @@ A private, iPhone-first workspace for nutrition, workouts, meal planning, grocer
 
 - **Today** combines today's logged nutrition, seven days of movement, monthly food spending, upcoming routines, and a seven-day calorie chart. Dashes represent unlogged days.
 - **Nutrition** integrates the full BabyNeKhanaKhaya? diary. Search the Indian food catalog, log household portions, save or repeat meals, create custom labels and recipes, and review coverage-aware nutrition trends. In the original app, download a JSON backup from Settings. In Fitness Agent, choose **Nutrition → Settings → Restore JSON** and review the replacement prompt.
-- **Workouts** records session types, duration, and notes. The movement target is a rolling seven-day target and can be changed or disabled in Settings.
+- **Workouts** records session types, duration, and notes. It also shows IronLog working sets and imported body measurements. The movement target is a rolling seven-day target and can be changed or disabled in Settings.
 - **Planner** holds meals by date and daily check-ins. **Use plan for groceries** previews ingredients and adds only the ones selected. Groceries already on the list are deduplicated regardless of case or checked status. Routines reset daily in the app.
-- **Spending** tracks manual grocery, delivery, and restaurant expenses in INR. Edit your monthly budget in Settings.
+- **Spending** tracks grocery, delivery, and restaurant expenses in INR, including reviewed receipts. Edit your monthly budget in Settings.
 - **Coach** can answer common questions about these records and uses preferences you explicitly add to Memory. The GitHub Pages edition uses a local rules engine. The optional model mode is described below.
 
 On iPhone, open Fitness Agent in Safari and choose **Share → Add to Home Screen**. Once Settings shows **Ready for offline use**, the main workspace and food diary can open without a network connection. Check-ins are shown inside the app.
 
+## Read-only imports
+
+Open **Settings → Imports**, or use the [Imports screen](https://planwithdata.github.io/Fitness-Agent/#imports).
+
+- **IronLog automatic link.** Open both apps in the same browser profile and choose **Link IronLog**. After you opt in, Fitness Agent reads completed sessions from IronLog's dedicated storage key and refreshes them as they change in another tab or when you return to Fitness Agent. Linked sessions update in place and live in IronLog. Disconnect to hide the live records. Browser profiles, devices, and isolated Home Screen installations may have separate storage.
+- **IronLog backup.** Export the JSON from IronLog Settings, then use **Import JSON backup**. This adds completed sessions and completed working sets to Fitness Agent's local workspace. The importer accepts IronLog backup schemas 1–4. Reimports skip existing session IDs, and the live link shows a single row when a session is also in the backup. Fitness Agent uses recorded duration or elapsed start/end time when available. Duration stays unknown otherwise. Workout backup imports include sessions and working sets.
+- **Apple Health and DrTrust.** In Apple's Health app, tap your profile and choose **Export All Health Data**, then save it to Files. Choose the ZIP or its `export.xml` under **Import Health file**. Review whether to import workouts, body measurements, or both. If you already track the same sessions in IronLog, choose measurements only. Weight and body fat are the supported measurements. DrTrust readings can be imported when they appear in Apple Health. The original file is processed in your browser. Reimport the latest export when you want to bring in new readings. [Apple Health export instructions](https://support.apple.com/en-euro/guide/iphone/iph5ede58c3d/ios)
+- **Blinkit and Zomato.** Save the complete order summary or receipt from your order history, then choose **Read receipts**. Select up to 20 PDFs with selectable text or plain-text files. For a scan or screenshot, use iPhone Live Text and **Paste receipt text**. Check the provider, date, amount, and detected line items before saving. Full order summaries are preferred because a fee-only invoice may show only part of what you paid. Duplicate order IDs are skipped. When an order ID is missing, identical files or pasted text are deduplicated. In Spending, expand the saved receipt's line items. For Zomato, **Find in diary** opens a prefilled food-catalog search so you can choose what you ate and log a portion. Ask Coach what you buy often to see patterns from imported Blinkit items. [Blinkit invoice guidance](https://blinkit.com/terms)
+- **Data controls.** Workspace backups include imported records you saved. Live IronLog rows remain in IronLog. Imported body measurements can be cleared in Imports. Receipt text, PDF files, and Health XML are processed for extraction and omitted from saved records. Health measurements and receipt line items are omitted from the optional model context.
+
+### Reduce file handling on iPhone
+
+- **Weight Shortcut.** In Shortcuts, use **Find Health Samples**, select Weight, and format each selected reading in kilograms as `YYYY-MM-DD,weight`. Use the header `date,weight_kg` and a period for decimals. Save to Files as `weight.csv`, then use **Import Health file** in Fitness Agent. A Time of Day automation can prepare the file where your device permits the Health action. [Find Health Samples](https://support.apple.com/guide/shortcuts/intro-to-find-and-filter-actions-apd3c845e881/10.0/ios/27)
+- **Receipt Shortcut.** If the merchant emails a PDF, an Email automation filtered to that sender and subject can save the attachment to a Receipts folder in Files. Select those files together in Fitness Agent. Orders without an emailed attachment can use the PDF or text from the order page. [Apple communication triggers](https://support.apple.com/en-ae/guide/shortcuts/apdd711f9dff/ios)
+- **Direct provider access.** Zomato reviews [personal-use developer requests](https://forms.eternal.com/form/ja8hap2tpm/) and allowlists approved OAuth redirect URLs. Live receipt sync would require that access and a private authorization backend. Direct background access to Apple Health requires a native iOS app with HealthKit permissions.
+
 ## Develop and deploy
 
-Use Node.js 22 or later.
+Use Node.js 22.13 or later.
 
 ```sh
+npm ci
 npm test
 npm start
 ```
 
 Open [http://127.0.0.1:4173/Fitness-Agent/](http://127.0.0.1:4173/Fitness-Agent/). The preview serves the same path as production. Restart the server after editing files.
 
-The frontend has zero runtime package dependencies. **Settings → Pages → Source** uses **GitHub Actions**. The workflow tests the app, stamps its offline cache with the commit SHA, and publishes only `site/` on pushes to `main`. It can also be dispatched from the Actions tab. Hash routes and relative assets work under `/Fitness-Agent/`.
+The build bundles the PDF, ZIP and XML readers into `site/vendor/` with their licenses. All readers run locally in the browser. **Settings → Pages → Source** uses **GitHub Actions**. The workflow tests the app, stamps its offline cache with the commit SHA, and publishes only `site/` on pushes to `main`. It can also be dispatched from the Actions tab. Hash routes and relative assets work under `/Fitness-Agent/`.
 
 ## Data and architecture
 

@@ -1023,6 +1023,12 @@ async function init() {
     catalog = validateCatalog(await response.json());
     state = await loadDiary(db);
     bind();
+    if (location.hash === '#foods') {
+      try {
+        $('catalog-query').value = sessionStorage.getItem('fitness-agent:diary-query') ?? '';
+        sessionStorage.removeItem('fitness-agent:diary-query');
+      } catch { /* Catalog search is still available. */ }
+    }
     render();
   } catch (error) {
     message(`Could not open your food diary. ${error.message} Reload and check that browser storage is available.`, true);
