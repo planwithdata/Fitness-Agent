@@ -4,7 +4,7 @@ const assets = [
   './', './index.html', './styles.css', './app.js', './manifest.webmanifest',
   './assets/icon.svg', './assets/icon-192.png', './assets/icon-512.png', './assets/orbit.svg',
   './lib/coach.js', './lib/domain.js', './lib/records.js', './lib/shell.js', './lib/storage.js', './lib/views.js',
-  './lib/import-model.js', './lib/imports-ui.js', './lib/health-import.js', './lib/receipt.js', './lib/pdf-receipt.js',
+  './lib/import-model.js', './lib/imports-ui.js', './lib/health-import.js', './lib/receipt.js', './lib/pdf-text.js', './lib/drtrust.js',
   './vendor/health-codecs.js', './vendor/pdf.mjs', './vendor/pdf.worker.mjs',
   './nutrition/', './nutrition/index.html', './nutrition/integration.js', './nutrition/theme.css',
   './nutrition/app.js', './nutrition/style.css', './nutrition/core.js', './nutrition/insights.js',

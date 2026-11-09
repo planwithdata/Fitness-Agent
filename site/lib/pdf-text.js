@@ -15,12 +15,12 @@ function textLines(items) {
   return lines.map(line => line.fragments.sort((a, b) => a.x - b.x).map(fragment => fragment.text).join(' '));
 }
 
-export async function receiptPdfText(bytes) {
+export async function readPdfText(bytes, maxPages = 30) {
   const task = getDocument({ data: bytes, isEvalSupported: false, useWasm: false, useWorkerFetch: false,
     useSystemFonts: false, disableFontFace: true, enableXfa: false });
   try {
     const pdf = await task.promise;
-    if (pdf.numPages > 30) throw new Error('Choose a receipt PDF with 30 pages or fewer.');
+    if (pdf.numPages > maxPages) throw new Error(`Choose a PDF with ${maxPages} pages or fewer.`);
     const lines = [];
     for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
       const page = await pdf.getPage(pageNo);

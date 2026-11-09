@@ -1,6 +1,6 @@
 import { today } from '../nutrition/core.js';
 import { brief, format, money, expenseTypes } from './domain.js';
-import { providers } from './import-model.js';
+import { measurements, measurementText, newestMeasurements, providers } from './import-model.js';
 import { prompts } from './coach.js';
 import { icon } from './shell.js';
 import { dateText, kinds, profileFields, templates } from './records.js';
@@ -111,16 +111,20 @@ function exerciseDetail(item) {
 }
 
 function healthMeasurements(health) {
-  const recent = [...health].sort((a, b) => b.date.localeCompare(a.date) || (b.time ?? 0) - (a.time ?? 0));
-  if (!recent.length) return empty('Import Apple Health readings to see weight and body fat here.');
-  const headline = ['weight', 'bodyFat'].map(kind => recent.find(item => item.kind === kind)).filter(Boolean);
-  const describe = item => `${item.value}${item.kind === 'weight' ? ' kg' : '%'}`;
-  return `<div class="measurement-grid">${headline.map(item => `<div>
-    <small>${item.kind === 'weight' ? 'Latest weight' : 'Latest body fat'}</small>
-    <strong>${describe(item)}</strong><small>${escape(item.date)} · ${escape(item.source)}</small>
-    </div>`).join('')}</div>
-    <details class="import-details"><summary>Recent measurements</summary><ul>${recent.slice(0, 12).map(item =>
-    `<li>${escape(item.date)} · ${describe(item)} · ${escape(item.source)}</li>`).join('')}</ul></details>`;
+  const recent = newestMeasurements(health);
+  if (!recent.length) return empty('Import an Apple Health file or DrTrust PDF to see body measurements here.');
+  const main = ['weight', 'bodyFat'];
+  const groups = Object.keys(measurements).map(kind => recent.filter(item => item.kind === kind)).filter(group => group.length);
+  const cards = data => `<div class="measurement-grid">${data.map(([item, ...past]) => `<div>
+    <small>${measurements[item.kind].label}</small>
+    <strong>${measurementText(item)}</strong><small>${escape(item.date)} · ${escape(item.source)}</small>
+    ${past.length ? `<details class="import-details"><summary>History</summary><ul>${past.slice(0, 12).map(sample =>
+      `<li>${escape(sample.date)} · ${measurementText(sample)} · ${escape(sample.source)}</li>`).join('')}</ul></details>` : ''}
+    </div>`).join('')}</div>`;
+  const other = groups.filter(([item]) => !main.includes(item.kind));
+  return cards(groups.filter(([item]) => main.includes(item.kind))) +
+    (other.length ? `<details class="import-details"><summary>More body composition readings</summary>
+      ${cards(other)}</details>` : '');
 }
 
 export function workouts(workspace, data, isLinked = () => false) {
@@ -140,7 +144,7 @@ export function workouts(workspace, data, isLinked = () => false) {
       ${card('Rolling 7-day progress', 'Includes today and the previous six days', `<p class="big-number">${format(data.minutes)} min</p>
         ${progress(data.minutes, goal)}<p class="muted">${data.workouts.length} workouts${goal ? ` · ${goal} min target` : ''}</p>
         ${link('Edit movement target', '#settings')}`)}
-      ${card('Body measurements', 'From Apple Health and weight files', healthMeasurements(workspace.health ?? []))}
+      ${card('Body measurements', 'From Apple Health, DrTrust and weight files', healthMeasurements(workspace.health ?? []))}
       </div>
     </div>`;
 }
@@ -260,7 +264,7 @@ export function settings(workspace) {
         ${btn('Export workspace', 'backup', 'download', '')}${btn('Restore workspace', 'restore', 'download', '')}
         <input type="file" id="restore-file" accept=".json,application/json" hidden></div>
         ${link('Import or export your food diary', './nutrition/#settings')}`)}
-      ${card('Imports and linked apps', 'Bring in IronLog workouts, Apple Health measurements, and Blinkit or Zomato receipts.', link('Open Imports', '#imports'))}
+      ${card('Imports and linked apps', 'Bring in IronLog workouts, Apple Health files, DrTrust reports, and store receipts.', link('Open Imports', '#imports'))}
       ${card('Connected services', 'Review the available data sources.', `<div class="integrations">
         <div><span>Food diary</span><span class="pill">Built in</span></div>
         <div><span>Zomato</span><span class="pill">Receipt import</span></div>

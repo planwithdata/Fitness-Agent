@@ -1,7 +1,7 @@
 import { money } from './domain.js';
 import { btn, escape } from './views.js';
 import { calendarDate, fileKey, ironLogBackup, ironLogPreference, ironLogSessions, ironLogStorageKey,
-  ironLogUrl, mergeUnique, providers, visibleWorkouts } from './import-model.js';
+  ironLogUrl, measurements, measurementText, mergeUnique, newestMeasurements, providers, visibleWorkouts } from './import-model.js';
 import { parseReceipt } from './receipt.js';
 
 const help = 'https://github.com/planwithdata/Fitness-Agent#read-only-imports';
@@ -31,11 +31,13 @@ export function importsPage(workspace, info) {
         <a class="text-link" href="${ironLogUrl}" target="_blank" rel="noopener noreferrer">Open IronLog ↗</a>
       </div><p class="field-help">Linked workouts update while Fitness Agent is open. If your iPhone Home Screen apps use separate storage, use an IronLog JSON backup.</p>
       <input id="import-ironlog" data-import="ironlog" type="file" accept=".json,application/json" hidden>`)}
-    ${importCard('Apple Health and DrTrust', 'Import workouts, body weight and body fat. If DrTrust writes these readings to Apple Health, the export includes them.', `
+    ${importCard('Apple Health and DrTrust', 'Import workouts and body measurements from Apple Health, or read the dated measurements in a DrTrust 360 body composition PDF.', `
       <p class="field-help">In Health, tap your profile and choose Export All Health Data. You can also pick a weight CSV saved by an iPhone Shortcut.</p>
       <div class="action-row">${btn('Import Health file', 'pick-import:health', 'download', '')}
+        ${btn('Import DrTrust PDF', 'pick-import:drtrust', 'download')}
         ${workspace.health?.length ? btn('Clear measurements', 'clear-health', 'trash', '') : ''}</div>
-      <input id="import-health" data-import="health" type="file" accept=".zip,.xml,.csv,application/zip,application/xml,text/xml,text/csv" hidden>`)}
+      <input id="import-health" data-import="health" type="file" accept=".zip,.xml,.csv,application/zip,application/xml,text/xml,text/csv" hidden>
+      <input id="import-drtrust" data-import="drtrust" type="file" accept=".pdf,application/pdf" hidden>`)}
     </div><div class="pane">
     ${importCard('Blinkit and Zomato receipts', 'Read totals, dates and recognizable line items from order receipts.', `
       <div class="action-row">${btn('Read receipts', 'pick-import:receipt', 'download')}
@@ -43,7 +45,7 @@ export function importsPage(workspace, info) {
       <p class="field-help">Pick up to ${receiptLimit} PDF or text files at once. For a screenshot or scanned receipt, copy its text with iPhone Live Text and paste it here. Use the complete order summary for the amount paid.</p>
       <input id="import-receipt" data-import="receipt" type="file" accept=".pdf,.txt,application/pdf,text/plain" multiple hidden>`)}
     ${importCard('Automation and privacy', 'Files are read in this browser. Only confirmed records are saved.', `
-      <p class="muted">IronLog can refresh automatically in the same browser. Apple Health and store receipts use files you select. The setup guide covers iPhone Shortcuts and provider access.</p>
+      <p class="muted">IronLog can refresh automatically in the same browser. Apple Health, DrTrust and store receipts use files you select. The setup guide covers iPhone Shortcuts and provider access.</p>
       <a class="text-link" href="${help}" target="_blank" rel="noopener noreferrer">Read the setup guide ↗</a>`)}
     </div></div>`;
 }
@@ -101,8 +103,8 @@ async function readReceipt(file) {
     if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') {
       const bytes = new Uint8Array(await file.arrayBuffer());
       hash = await fileKey(bytes);
-      const { receiptPdfText } = await import('./pdf-receipt.js');
-      text = await receiptPdfText(bytes);
+      const { readPdfText } = await import('./pdf-text.js');
+      text = await readPdfText(bytes);
     } else if (/\.txt$/i.test(file.name) || file.type === 'text/plain') {
       text = (await file.text()).trim();
       hash = await fileKey(text);
@@ -161,7 +163,15 @@ export function createImports({ getState, edit, render, notify, modalForm }) {
     const current = getState();
     const nextWorkouts = mergeUnique(current.workouts, records);
     const nextHealth = mergeUnique(current.health ?? [], health);
-    const summary = [countText(nextWorkouts.length, 'new workout'), countText(nextHealth.length, 'new measurement')].join(' and ');
+    const summary = [
+      nextWorkouts.length && countText(nextWorkouts.length, 'new workout'),
+      nextHealth.length && countText(nextHealth.length, 'new measurement'),
+    ].filter(Boolean).join(' and ');
+    const report = source === 'DrTrust' && nextHealth.length ? newestMeasurements(nextHealth) : [];
+    const latest = ['weight', 'bodyFat', 'muscleMass'].flatMap(kind => {
+      const item = report.find(record => record.kind === kind);
+      return item ? [`<li>${measurements[kind].label} · ${measurementText(item)} · ${item.date}</li>`] : [];
+    });
     if (!nextWorkouts.length && !nextHealth.length) {
       notify(records.length || health.length ? 'These records are already imported.' : 'No supported completed workouts or measurements were found.');
       return;
@@ -170,6 +180,7 @@ export function createImports({ getState, edit, render, notify, modalForm }) {
         ${skipped ? ` ${countText(skipped, 'incomplete or invalid record')} skipped.` : ''}</p>
         ${nextWorkouts.length ? `<label class="option-check"><input type="checkbox" name="workouts" checked> Import workouts</label>${workoutPreview(nextWorkouts)}` : ''}
         ${nextHealth.length ? `<label class="option-check"><input type="checkbox" name="health" checked> Import measurements</label>` : ''}
+        ${latest.length ? `<ul class="import-list">${latest.join('')}</ul>` : ''}
         ${source === 'Health' && nextWorkouts.length ? '<p class="field-help">If IronLog already has these sessions, uncheck workouts to avoid counting the same movement twice.</p>' : ''}`,
     'Import selected', async form => {
       const selection = new FormData(form);
@@ -218,6 +229,12 @@ export function createImports({ getState, edit, render, notify, modalForm }) {
         const { readHealthFile } = await import('./health-import.js');
         const data = await readHealthFile(files[0]);
         workoutImport(data.workouts, data.health, data.skipped, 'Health');
+      } else if (kind === 'drtrust') {
+        const file = files[0];
+        if (file.size > 15 * 1024 * 1024) throw new Error('Choose a DrTrust PDF smaller than 15 MB.');
+        const [{ readPdfText }, { parseDrTrustReport }] = await Promise.all([import('./pdf-text.js'), import('./drtrust.js')]);
+        const data = parseDrTrustReport(await readPdfText(new Uint8Array(await file.arrayBuffer()), 60));
+        workoutImport(data.workouts, data.health, data.skipped, 'DrTrust');
       } else {
         if (files.length > receiptLimit) throw new Error(`Choose up to ${receiptLimit} receipt files at a time.`);
         const previews = [];
@@ -240,7 +257,7 @@ export function createImports({ getState, edit, render, notify, modalForm }) {
         return () => receiptImport([{ label: 'Pasted receipt', parsed: parseReceipt(text), hash }]);
       }),
     'clear-health': () => modalForm('Clear imported measurements?',
-      '<p class="muted">Remove imported weight and body-fat readings from Fitness Agent.</p>', 'Clear measurements',
+      '<p class="muted">Remove imported body measurements from Fitness Agent.</p>', 'Clear measurements',
       async () => { await edit(draft => { draft.health = []; }); notify('Measurements cleared.'); }, 'danger'),
   };
 

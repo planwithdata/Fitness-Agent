@@ -1,6 +1,6 @@
 import { shiftDay } from '../nutrition/core.js';
 
-export const providers = { ironlog: 'IronLog', apple: 'Apple Health', shortcut: 'Health Shortcut',
+export const providers = { ironlog: 'IronLog', apple: 'Apple Health', shortcut: 'Health Shortcut', drtrust: 'DrTrust',
   blinkit: 'Blinkit', zomato: 'Zomato' };
 export const ironLogStorageKey = 'ironlog:v1:sessions';
 export const ironLogPreference = 'fitness-agent:ironlog-linked';
@@ -120,6 +120,40 @@ export function appleWorkout(attrs) {
     notes: source, imported: { provider: 'apple' } };
 }
 
+export const measurements = {
+  weight: { label: 'Weight', unit: 'kg', max: 1500 },
+  bodyFat: { label: 'Body fat', unit: '%', max: 100 },
+  muscleMass: { label: 'Muscle mass', unit: 'kg', max: 1500 },
+  muscleRate: { label: 'Muscle rate', unit: '%', max: 100 },
+  bodyWater: { label: 'Body water', unit: '%', max: 100 },
+  boneMass: { label: 'Bone mass', unit: 'kg', max: 1500 },
+  bmr: { label: 'Reported BMR', unit: 'kcal', max: 30000 },
+  visceralFat: { label: 'Visceral fat', unit: '%', max: 100 },
+  subcutaneousFat: { label: 'Subcutaneous fat', unit: '%', max: 100 },
+  protein: { label: 'Protein mass', unit: '%', max: 100 },
+  fatFreeMass: { label: 'Weight without fat', unit: 'kg', max: 1500 },
+};
+
+export function newestMeasurements(items) {
+  return [...items].sort((a, b) => b.date.localeCompare(a.date) || (b.time ?? 0) - (a.time ?? 0));
+}
+
+export function measurementText({ kind, value }) {
+  const unit = measurements[kind].unit;
+  return value + (unit === '%' ? '' : ' ') + unit;
+}
+
+export function validMeasurementValue(kind, value) {
+  return Object.hasOwn(measurements, kind) && Number.isFinite(value) && value > 0 && value <= measurements[kind].max;
+}
+
+export function makeMeasurement({ kind, date, time, value, source }, provider) {
+  const rounded = Math.round(value * 1000) / 1000;
+  if (!validMeasurementValue(kind, rounded)) return null;
+  const key = healthKey([kind, time ?? date, rounded, source]);
+  return { id: importId(provider, key), provider, date, time, kind, value: rounded, source };
+}
+
 export function bodyMeasurement(attrs, provider = 'apple') {
   const date = calendarDate(attrs.startDate);
   const raw = Number(attrs.value);
@@ -127,11 +161,8 @@ export function bodyMeasurement(attrs, provider = 'apple') {
   const conversion = kind === 'weight' ? { kg: 1, lb: 0.45359237, g: 0.001 }[attrs.unit]
     : attrs.unit === '%' ? 1 : null;
   if (!date || !kind || !conversion || !(raw > 0)) return null;
-  const value = Math.round(raw * conversion * 1000) / 1000;
-  if (!value || value > (kind === 'weight' ? 1500 : 100)) return null;
-  const source = tidy(attrs.sourceName) || providers[provider];
-  const key = healthKey([kind, instant(attrs.startDate) ?? date, value, source]);
-  return { id: importId(provider, key), provider, date, time: instant(attrs.startDate), kind, value, source };
+  return makeMeasurement({ kind, date, time: instant(attrs.startDate), value: raw * conversion,
+    source: tidy(attrs.sourceName) || providers[provider] }, provider);
 }
 
 export function shortcutMeasurements(text) {

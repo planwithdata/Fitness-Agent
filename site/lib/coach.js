@@ -1,4 +1,13 @@
 import { brief, format, money } from './domain.js';
+import { measurements, measurementText, newestMeasurements } from './import-model.js';
+
+const measurementQueries = [
+  ['subcutaneousFat', /subcutaneous fat/], ['visceralFat', /visceral fat/],
+  ['fatFreeMass', /fat.free mass|weight without fat/], ['bodyFat', /body fat/],
+  ['weight', /body weight|my weight|latest weight|weigh[- ]?in|weight trend|weight history/],
+  ['muscleMass', /muscle mass/], ['muscleRate', /muscle rate/], ['bodyWater', /body water/],
+  ['boneMass', /bone mass/], ['bmr', /\bbmr\b/], ['protein', /protein mass/],
+];
 
 export const prompts = ['How is my day going?', 'Review my nutrition', 'What should I cook?', 'Check my food budget'];
 
@@ -42,12 +51,15 @@ export function localReply(question, data, workspace) {
     const memory = workspace.memory.filter(item => item.kind === 'Food').slice(0, 2);
     return plan + staples + preference + (memory.length ? ' Food notes you saved: ' + memory.map(item => item.text).join(' • ') : '');
   }
-  if (/body fat|body weight|weigh[- ]?in|weight trend/.test(query)) {
-    const kind = /body fat/.test(query) ? 'bodyFat' : 'weight';
-    const sample = [...(workspace.health ?? [])].filter(item => item.kind === kind)
-      .sort((a, b) => b.date.localeCompare(a.date) || (b.time ?? 0) - (a.time ?? 0))[0];
-    if (!sample) return 'There are no readings for that measurement. Open Imports to add your Apple Health data.';
-    return `Your latest imported ${kind === 'weight' ? 'weight' : 'body-fat reading'} was ${sample.value} ${kind === 'weight' ? 'kg' : '%'} on ${sample.date}, from ${sample.source}.`;
+  const kind = measurementQueries.find(([, pattern]) => pattern.test(query))?.[0];
+  if (kind) {
+    const recent = newestMeasurements((workspace.health ?? []).filter(item => item.kind === kind));
+    const [sample] = recent;
+    if (!sample) return 'There are no readings for that measurement. Open Imports to add an Apple Health file or DrTrust report.';
+    const previous = recent.find(item => item.date < sample.date && item.source === sample.source && item.provider === sample.provider);
+    const latest = `Your latest imported ${measurements[kind].label.toLowerCase()} was ${measurementText(sample)} on ${sample.date}, from ${sample.source}.`;
+    return previous && /trend|change|history|compare/.test(query)
+      ? latest + ` The previous reading from that source was ${measurementText(previous)} on ${previous.date}.` : latest;
   }
   if (/workout|exercise|train|movement|fitness/.test(query)) {
     const target = workspace.profile.workoutGoal;

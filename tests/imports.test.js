@@ -3,6 +3,7 @@ import test from 'node:test';
 import { zipSync } from 'fflate';
 import { readHealthFile } from '../site/lib/health-import.js';
 import { ironLogBackup, ironLogSessions, mergeUnique, visibleWorkouts } from '../site/lib/import-model.js';
+import { parseDrTrustReport } from '../site/lib/drtrust.js';
 import { parseReceipt } from '../site/lib/receipt.js';
 import { emptyWorkspace } from '../site/lib/domain.js';
 import { workspaceFromBackup } from '../site/lib/records.js';
@@ -111,4 +112,40 @@ test('workspace backups include import metadata while older backups remain suppo
   assert.deepEqual(workspaceFromBackup(backup), data);
   assert.match(localReply('What have I bought?', {}, data), /Milk.*1 order/);
   assert.match(localReply('What is my body weight?', {}, data), /75.2 kg/);
+});
+
+
+const drTrustHeader = `Body composition report Pg 4 of 6
+MUSCLE BODY BONE VISCERAL SUB CUT. BODY PROTEIN MUSCLE WEIGHT READING
+DATE WEIGHT BMR
+RATE WATER MASS FAT FAT FAT MASS MASS W/O FAT TYPE`;
+
+test('DrTrust imports dated values by column and preserves missing cells', () => {
+  const row = 'Nov 10, 2026 - 12:01 AM 75.5Kg 78% 59% 3.1Kg 1750Kcal 6% 14% 19% 18% 61Kg 62Kg Device';
+  const missing = 'Nov 09, 2026 - 12:01 PM 75.8Kg -- -- -- -- -- -- -- -- -- 62.5Kg Device';
+  const malformed = row.replace('Nov 10', 'Nov 11').replace('1750Kcal', '1750Kg');
+  const data = parseDrTrustReport([drTrustHeader, row, missing, row, malformed].join('\n'));
+  assert.equal(data.health.length, 13);
+  assert.equal(data.skipped, 1);
+  assert.equal(data.health.find(item => item.kind === 'weight').time, Date.parse('2026-11-10T00:01:00+05:30'));
+  assert.equal(data.health.find(item => item.kind === 'muscleMass').value, 61);
+  assert.equal(data.health.find(item => item.kind === 'bodyFat').value, 19);
+  assert.equal(data.health.find(item => item.date === '2026-11-09').time, Date.parse('2026-11-09T12:01:00+05:30'));
+  assert.throws(() => parseDrTrustReport(row), /DrTrust 360/);
+  assert.throws(() => parseDrTrustReport(drTrustHeader), /No supported dated measurements/);
+});
+
+test('saved DrTrust measurements restore and coach history stays source-specific', () => {
+  const rows = [
+    drTrustHeader,
+    'Nov 10, 2026 - 10:00 AM 75Kg 78% 59% 3Kg 1750Kcal 6% 14% 19% 18% 61Kg 62Kg Device',
+    'Nov 08, 2026 - 10:00 AM 76Kg 78% 59% 3Kg 1750Kcal 6% 14% 19% 18% 60Kg 62Kg Device',
+  ];
+  const data = emptyWorkspace();
+  data.health = parseDrTrustReport(rows.join('\n')).health;
+  assert.deepEqual(workspaceFromBackup({ format: 'fitness-agent-workspace', data }), data);
+  assert.match(localReply('Compare my muscle mass', {}, data), /61 kg.*previous reading from that source was 60 kg/);
+  assert.deepEqual(mergeUnique(data.health, parseDrTrustReport(rows.join('\n')).health), []);
+  data.health[0].value = Infinity;
+  assert.throws(() => workspaceFromBackup({ format: 'fitness-agent-workspace', data }), /invalid health measurements/);
 });

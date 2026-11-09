@@ -1,5 +1,6 @@
 import { today, prettyDay, meals } from '../nutrition/core.js';
 import { expenseTypes, workoutTypes } from './domain.js';
+import { validMeasurementValue } from './import-model.js';
 
 export const kinds = {
   workouts: { name: 'workout', icon: 'workout', tone: 'violet', fields: [
@@ -95,9 +96,9 @@ function validImport(info, collection) {
 
 function validMeasurement(item) {
   return validText(item?.id, 100) && validDate(item.date) && validText(item.source, 100)
-    && ['apple', 'shortcut'].includes(item.provider) && ['weight', 'bodyFat'].includes(item.kind)
+    && (item.provider === 'drtrust' || (['apple', 'shortcut'].includes(item.provider) && ['weight', 'bodyFat'].includes(item.kind)))
     && (item.time === null || Number.isFinite(item.time))
-    && Number.isFinite(item.value) && item.value > 0 && item.value <= (item.kind === 'weight' ? 1500 : 100);
+    && validMeasurementValue(item.kind, item.value);
 }
 
 export function workspaceFromBackup(input) {
