@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0c1018">
+  <meta name="description" content="Your private workspace for nutrition, workouts, planning and food spending.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Fitness Agent · Today</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./assets/icon-192.png">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <aside class="rail" id="workspace-rail"></aside>
+  <div class="workspace">
+    <header class="topbar" id="workspace-header"></header>
+    <main id="main" tabindex="-1"><p class="loading">Opening your workspace…</p></main>
+  </div>
+  <div class="toast" role="status" hidden></div>
+  <dialog class="sheet" aria-labelledby="dialog-title">
+    <div class="sheet-head"><h2 id="dialog-title"></h2><button class="icon-btn" data-close aria-label="Close dialog" type="button"></button></div>
+    <div id="dialog-content"></div>
+  </dialog>
+</body>
+</html>

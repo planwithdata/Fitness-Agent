@@ -1,0 +1,142 @@
+:root {
+  color-scheme: light;
+  --paper: #f7f7ef; --white: #fffefa; --ink: #172c24; --muted: #54665a;
+  --line: #dce3d5; --green: #154639; --mint: #e4f0bc; --soft: #edf2e8;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--paper); color: var(--ink); }
+a { color: var(--green); }
+button, input, select { font: inherit; }
+button { border: 1px solid transparent; border-radius: 11px; padding: .62rem .9rem; min-height: 42px; color: white; background: var(--green); font-weight: 650; cursor: pointer; }
+button:hover { filter: brightness(.91); }
+button:disabled { opacity: .55; cursor: default; }
+button.secondary, button.quiet { color: var(--green); background: var(--soft); }
+button.secondary { border-color: var(--line); }
+button.danger { background: #902f2f; color: white; }
+:focus-visible { outline: 3px solid #267a54; outline-offset: 2px; }
+input:not([type=checkbox]), select { width: 100%; color: var(--ink); background: white; border: 1px solid #acbaac; border-radius: 9px; padding: .55rem .7rem; min-height: 43px; }
+input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: var(--green); margin: 0; }
+label { font-size: .9rem; font-weight: 650; display: grid; gap: .35rem; }
+label.check { display: flex; gap: .5rem; align-items: center; white-space: nowrap; }
+.shell { width: min(1080px, calc(100% - 2rem)); margin-inline: auto; }
+.header { min-height: 86px; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.brand { display: flex; align-items: center; gap: .7rem; color: var(--ink); text-decoration: none; font-size: 1.17rem; font-weight: 780; line-height: 1.1; }
+.brand small { display: block; letter-spacing: .09em; margin-top: .3rem; font-size: .57rem; color: var(--muted); }
+.local { color: var(--muted); font-size: .76rem; }
+.local span { display: inline-block; width: .48rem; height: .48rem; background: #55936b; border-radius: 50%; margin-right: .2rem; }
+nav { display: flex; flex-wrap: wrap; gap: .35rem; border-bottom: 1px solid var(--line); padding: 0 0 .65rem; }
+nav a { padding: .57rem .8rem; border-radius: 9px; text-decoration: none; color: var(--muted); font-weight: 650; font-size: .88rem; }
+nav a[aria-current] { background: #e6eddb; color: var(--green); }
+nav a:hover { background: var(--soft); }
+.intro, .section-head { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+.intro { margin: 1.8rem 0 1.2rem; }
+.section-head { margin: 1.6rem 0 .75rem; }
+.section-head p, .subhead { margin: .38rem 0 0; color: var(--muted); }
+.eyebrow { font-size: .7rem; font-weight: 800; letter-spacing: .15em; color: #35614f; margin: 0 0 .38rem; }
+h1, h2, h3, p { margin-top: 0; }
+h1 { font-size: clamp(2.25rem, 6vw, 3.4rem); letter-spacing: -.06em; margin-bottom: 0; line-height: 1.02; }
+h2 { font-size: 1.25rem; margin-bottom: .45rem; letter-spacing: -.025em; }
+h3 { font-size: 1rem; margin-bottom: .3rem; }
+.date-control, .actions { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; }
+.date-control input { width: auto; }
+.summary { display: grid; grid-template-columns: 1.45fr repeat(4, 1fr); border: 1px solid var(--line); background: var(--white); border-radius: 18px; overflow: hidden; }
+.stat { padding: 1.1rem; min-width: 0; }
+.stat + .stat { border-left: 1px solid var(--line); }
+.stat:first-child { background: var(--green); color: white; }
+.stat strong { display: block; font-size: clamp(1.3rem, 4vw, 2rem); font-variant-numeric: tabular-nums; margin: .22rem 0; }
+.stat small, .stat span { font-size: .76rem; color: var(--muted); }
+.stat:first-child :is(small,span) { color: #e0efcd; }
+.panel { padding: 1rem; border: 1px solid var(--line); background: var(--white); border-radius: 14px; }
+.compact { margin-top: .6rem; padding-block: .65rem; }
+summary { cursor: pointer; font-size: .87rem; font-weight: 650; color: var(--green); }
+.details-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .8rem; margin-top: .65rem; }
+.details-grid div { font-size: .86rem; }
+.details-grid strong { display: block; }
+.meals, .settings-grid, .review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.meal { min-height: 132px; }
+.meal-head, .food-row, .entry { display: flex; justify-content: space-between; align-items: center; gap: .6rem; }
+.meal-head { margin-bottom: .55rem; }
+.meal-head h3 { margin: 0; }
+.food-row, .entry { border-top: 1px solid var(--line); padding: .5rem 0; }
+.food-row:first-child { border-top: 0; }
+.entry button, .food-row button { flex-shrink: 0; }
+.row-main { min-width: 0; overflow-wrap: anywhere; }
+.row-main small { display: block; color: var(--muted); margin-top: .12rem; }
+.muted { color: var(--muted); font-size: .86rem; line-height: 1.5; }
+.empty { color: var(--muted); font-size: .87rem; margin: .6rem 0; }
+.footnote { margin-top: 1rem; }
+.settings-grid form, .stack { display: grid; align-content: start; gap: .72rem; }
+.settings-grid form :is(h2,p), .stack p { margin-bottom: 0; }
+.settings-grid form button, .stack > button { justify-self: start; }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: .6rem; }
+.fields.three { grid-template-columns: repeat(3, minmax(0,1fr)); }
+.field-wide { grid-column: 1 / -1; }
+.results { max-height: 54vh; overflow-y: auto; }
+.notice { margin-top: .7rem; border: 1px solid var(--line); border-radius: 10px; padding: .7rem .8rem; background: #e6eddb; }
+.notice.error, .form-error { color: #842b2b; }
+.notice.error { background: #f9e8e3; }
+.footer { padding-block: 1.35rem; display: flex; justify-content: space-between; color: var(--muted); font-size: .8rem; }
+dialog { width: min(580px, calc(100% - 1.4rem)); max-height: min(90dvh, 800px); color: var(--ink); background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 1rem; box-shadow: 0 18px 48px #122c2540; }
+dialog::backdrop { background: #142f26a0; }
+.modal-head { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-bottom: .8rem; }
+.modal-head h2 { margin: 0; }
+.modal-head button { font-size: 1.15rem; }
+.portion-preview { border: 1px solid var(--line); background: var(--soft); border-radius: 10px; padding: .7rem; }
+.recipe-row { display: grid; grid-template-columns: 1.5fr 1fr auto; gap: .45rem; margin-bottom: .5rem; align-items: end; }
+.tag { display: inline-block; border-radius: 999px; padding: .24rem .55rem; font-size: .74rem; background: var(--soft); color: var(--green); }
+.nutrition-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; }
+.nutrition-caption { margin: .7rem 0; }
+.nutrition-panels { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: .75rem; }
+.nutrition-panels > .panel { min-width: 0; }
+.nutrition-panels .wide { grid-column: 1 / -1; }
+.table-scroll { overflow-x: auto; }
+.nutrition-table { border-collapse: collapse; width: 100%; font-size: .85rem; font-variant-numeric: tabular-nums; }
+.nutrition-table :is(th,td) { border-bottom: 1px solid var(--line); text-align: left; padding: .48rem .45rem; }
+.nutrition-table th { font-weight: 650; }
+.nutrition-table tbody tr:last-child :is(th,td) { border-bottom: 0; }
+.nutrition-table .metric-select { border: 0; color: var(--green); background: transparent; padding: .15rem 0; min-height: 30px; text-decoration: underline; text-align: left; }
+.nutrition-table .metric-select[aria-pressed="true"] { background: var(--soft); padding-inline: .3rem; text-decoration: none; }
+.nutrition-bar { display: block; height: .28rem; border-radius: 4px; background: #4f846a; margin-top: .25rem; }
+.target-fields, #nutrition-suggestions { margin-top: .7rem; }
+.suggestion { border-top: 1px solid var(--line); padding-top: .7rem; margin-top: .7rem; }
+.summary-text { width: 100%; min-height: 14rem; resize: vertical; color: var(--ink); background: white; border: 1px solid #acbaac; border-radius: 9px; padding: .6rem; font: inherit; }
+.report-status { display: inline-block; border-radius: 7px; background: #ecefea; color: #425348; padding: .18rem .38rem; font-size: .74rem; font-weight: 650; }
+.report-status.met { background: #e0f0dd; color: #245232; }
+.report-status:is(.below,.moderate) { background: #f9ebcc; color: #724c0a; }
+.report-status.over { background: #f9e1dc; color: #812f28; }
+.report-detail { display: block; margin-top: .15rem; }
+.reference-value.met { color: #245232; }
+.reference-value.below { color: #724c0a; }
+.reference-value.over { color: #812f28; }
+.stat:first-child .reference-value.met { color: #bdebb5; }
+.stat:first-child .reference-value.below { color: #ffe09a; }
+.stat:first-child .reference-value.over { color: #ffc1ba; }
+.stat .report-status { max-width: 100%; overflow-wrap: anywhere; }
+.stat:first-child .report-status { color: #425348; }
+.stat:first-child .report-status.met { color: #245232; }
+.stat:first-child .report-status.below { color: #724c0a; }
+.stat:first-child .report-status.over { color: #812f28; }
+.daily-targets { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(135px, 100%), 1fr)); gap: .5rem; margin-top: .6rem; }
+.target-card { padding: .7rem; }
+.target-card :is(strong,small) { display: block; }
+.target-legend { margin: .55rem 0; }
+.portion-badges { display: flex; flex-wrap: wrap; gap: .28rem; margin-top: .28rem; }
+.meal-portion-list { margin: 0; padding-inline-start: 1.25rem; }
+#nutrition .actions { align-items: end; }
+@media (max-width: 650px) {
+  .shell { width: calc(100% - 1.2rem); }
+  .header { min-height: 67px; }
+  nav { gap: .1rem; }
+  nav a { padding-inline: .6rem; }
+  .intro { margin-top: 1.25rem; }
+  .summary { grid-template-columns: repeat(4, 1fr); }
+  .stat:first-child { grid-column: 1 / -1; }
+  .stat:nth-child(2) { border-left: 0; }
+  .stat { padding: .7rem .48rem; }
+  .meals, .settings-grid, .review-grid { grid-template-columns: 1fr; }
+  .nutrition-panels { grid-template-columns: 1fr; }
+  .nutrition-controls { grid-template-columns: 1fr 1fr; }
+  .nutrition-controls label:last-child { grid-column: 1 / -1; }
+}

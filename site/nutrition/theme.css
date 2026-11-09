@@ -1,0 +1,39 @@
+.nutrition-page {
+  --paper: var(--bg); --white: var(--card); --ink: var(--text); --green: var(--mint);
+  --soft: #213044; --line: #303c50; --muted: #a0adc1; --mint: #91eac7;
+}
+.nutrition-page #main { padding-top: 19px; }
+.nutrition-page .diary-back { display: none; }
+.nutrition-page :is(.desktop-nav, .mobile-nav) { border: 0; padding: 0; }
+.nutrition-page :is(.desktop-nav, .mobile-nav) a[aria-current] { background: #1a302e; color: var(--mint); }
+.nutrition-page .mobile-nav a[aria-current] { background: none; }
+.nutrition-page .agent-brand { padding: 0; }
+.nutrition-page .nutrition-nav { gap: 5px; }
+.nutrition-page .nutrition-nav a { min-height: 41px; display: inline-flex; align-items: center; }
+.nutrition-page .nutrition-nav a[aria-current] { background: #213a35; color: var(--mint); }
+.nutrition-page .intro { margin-top: 1.3rem; }
+.nutrition-page .eyebrow { color: var(--mint); }
+.nutrition-page :is(.panel, .summary) { background: linear-gradient(145deg, #17202d, var(--card-deep)); }
+.nutrition-page .stat:first-child { background: #1e3934; }
+.nutrition-page #main button:not(.secondary, .quiet, .metric-select, .danger),
+.nutrition-page dialog button:not(.secondary, .quiet, .danger) { color: var(--mint-dark); background: var(--mint); }
+.nutrition-page :is(input:not([type=checkbox]), select, .summary-text) {
+  background: #0f1520; border-color: #39465b; font-size: 1rem;
+}
+.nutrition-page .notice { background: #1b3833; color: #d1f5ea; }
+.nutrition-page :is(.notice.error, .form-error) { color: #ffc0c8; }
+.nutrition-page .notice.error { background: #462731; }
+.nutrition-page .reference-value.met { color: #a6eab4; }
+.nutrition-page .reference-value.below { color: #ffe09a; }
+.nutrition-page .reference-value.over { color: #ffc1ba; }
+.nutrition-page dialog { background: #171f2e; }
+.nutrition-page .report-status, .nutrition-page .stat .report-status { color: #c2d0e0; background: #2c394d; }
+.nutrition-page .report-status.met, .nutrition-page .stat .report-status.met { color: #b5efc7; background: #244339; }
+.nutrition-page .report-status:is(.below,.moderate), .nutrition-page .stat .report-status:is(.below,.moderate) { color: #ffe0a1; background: #493925; }
+.nutrition-page .report-status.over, .nutrition-page .stat .report-status.over { color: #ffc0c8; background: #512e3b; }
+.nutrition-page .results { scrollbar-color: #52617a #141b27; }
+@media (max-width: 760px) {
+  .nutrition-page .diary-back { display: inline-flex; min-height: 30px; margin-bottom: 5px; }
+  .nutrition-page .nutrition-nav { padding-bottom: 4px; }
+  .nutrition-page .nutrition-nav a { padding-inline: 8px; }
+}
