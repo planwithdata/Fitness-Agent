@@ -25,6 +25,10 @@
     <nav class="nutrition-nav" aria-label="Nutrition views">
       <a href="#diary">Diary</a><a href="#nutrition">Nutrition</a><a href="#foods">My foods</a><a href="#review">Weekly review</a><a href="#settings">Settings</a>
     </nav>
+    <div id="calorie-link-banner" class="panel compact" hidden>
+      <p id="calorie-link-status" class="muted" role="status"></p>
+      <div class="actions"><a id="calorie-counter-url" class="text-link">Open Calorie Counter to log or edit food</a></div>
+    </div>
     <div id="status" class="notice" role="status" hidden></div>
     <section id="diary">
       <div class="intro"><div><p class="eyebrow">FOOD DIARY</p><h1>Your day</h1></div>
@@ -34,7 +38,7 @@
       <div id="day-targets" class="daily-targets" aria-label="Daily nutrient targets" hidden></div>
       <p class="muted target-legend" id="day-target-legend" hidden></p>
       <details class="panel compact" id="details"><summary>More nutrients</summary><div id="extra-nutrients" class="details-grid"></div></details>
-      <div class="section-head"><div><h2>Meals</h2><p>Search the catalog or repeat a meal you know.</p></div><label class="check"><input id="complete" type="checkbox"> Day complete</label></div>
+      <div class="section-head"><div><h2>Meals</h2><p>Review what you logged by meal.</p></div><label class="check"><input id="complete" type="checkbox"> Day complete</label></div>
       <p id="portion-share-legend" class="muted target-legend" hidden></p>
       <div id="meals" class="meals"></div>
     </section>
@@ -54,8 +58,8 @@
       </div>
     </section>
     <section id="foods" hidden>
-      <div class="intro"><div><p class="eyebrow">YOUR LIBRARY</p><h1>My foods</h1><p class="subhead">Browse the catalog and save your own labels, recipes and portions.</p></div>
-        <div class="actions"><button type="button" id="new-food">+ Custom food</button><button type="button" class="secondary" id="new-recipe">+ Recipe</button></div>
+      <div class="intro"><div><p class="eyebrow">YOUR LIBRARY</p><h1>My foods</h1><p class="subhead">Browse food labels, recipes and portions.</p></div>
+        <div class="actions" data-diary-edit><button type="button" id="new-food">+ Custom food</button><button type="button" class="secondary" id="new-recipe">+ Recipe</button></div>
       </div>
       <div class="panel"><div class="fields"><label>Search foods<input id="catalog-query" type="search" placeholder="Try Amul Gold, chapati or dahi"></label><label>Food group<select id="catalog-category"></select></label></div><p id="catalog-count" class="muted"></p><div id="catalog-list" class="results"></div><button id="more-foods" type="button" class="secondary" hidden>Show more</button></div>
       <div class="section-head"><div><h2>Saved meals</h2><p>Save a combination from the diary to repeat it later.</p></div></div>
@@ -80,12 +84,13 @@
           <button type="submit">Save targets</button>
         </form>
         <div class="panel">
-          <h2>Data and backups</h2><p class="muted">This browser holds your diary. Restore a JSON backup from your original BabyNeKhanaKhaya? app, or export your Fitness Agent diary to move it to another device.</p>
-          <div class="actions"><button id="backup" type="button">Download JSON</button><button id="restore" class="secondary" type="button">Restore JSON</button><button id="csv" class="secondary" type="button">Export CSV</button></div>
+          <h2>Data and backups</h2><p class="muted">Export the diary you are viewing or restore a backup into your Fitness Agent diary.</p>
+          <a id="calorie-link-manage" class="text-link" href="../#imports">Link Calorie Counter</a>
+          <div class="actions"><button id="backup" type="button">Download JSON</button><button id="restore" class="secondary" data-diary-edit type="button">Restore JSON</button><button id="csv" class="secondary" type="button">Export CSV</button></div>
           <p id="last-backup" class="muted"></p>
           <input id="backup-file" type="file" accept=".json,application/json" hidden>
         </div>
-        <div class="panel">
+        <div class="panel" data-diary-edit>
           <h2>Personal catalog import</h2><p class="muted">Import a local nutrition JSON file as a separate personal catalog. It stays in this browser and travels with your backup.</p>
           <div class="actions"><button id="import-catalog" type="button" class="secondary">Import foods</button><button id="sample-catalog" type="button" class="quiet">Download example format</button></div>
           <input id="catalog-file" type="file" accept=".json,application/json" hidden>

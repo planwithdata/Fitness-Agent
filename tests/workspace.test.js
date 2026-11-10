@@ -95,9 +95,9 @@ test('PWA asset references resolve at the required GitHub Pages base', () => {
     const links = read(page).matchAll(/(?:href|src)="([^"#][^"]*)"/g);
     for (const [, path] of links) {
       if (path.startsWith('https://')) continue;
-      const url = new URL(path, new URL(page, base)).href;
-      assert.ok(url.startsWith(base), path);
-      const local = url.slice(base.length);
+      const url = new URL(path, new URL(page, base));
+      assert.ok(url.href.startsWith(base), path);
+      const local = url.pathname.slice(new URL(base).pathname.length);
       assert.ok(read(local.endsWith('/') || local === '' ? local + 'index.html' : local).length, path);
     }
   }

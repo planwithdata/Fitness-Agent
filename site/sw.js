@@ -8,7 +8,7 @@ const assets = [
   './vendor/health-codecs.js', './vendor/pdf.mjs', './vendor/pdf.worker.mjs',
   './nutrition/', './nutrition/index.html', './nutrition/integration.js', './nutrition/theme.css',
   './nutrition/app.js', './nutrition/style.css', './nutrition/core.js', './nutrition/insights.js',
-  './nutrition/storage.js', './nutrition/catalog.json',
+  './nutrition/storage.js', './nutrition/calorie-link.js', './nutrition/catalog.json',
 ];
 const urls = new Set(assets.map(asset => new URL(asset, self.registration.scope).href));
 

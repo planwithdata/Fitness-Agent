@@ -56,7 +56,7 @@ function calorieChart(data) {
       : 'Log a meal to start your trend. Empty days appear as dashes.'}</p>`;
 }
 
-export function dashboard(workspace, data) {
+export function dashboard(workspace, data, calorieStatus) {
   const { totals, foods, calorieTarget, proteinTarget, minutes, spent, meals, groceries, routines } = data;
   const name = workspace.profile.name;
   const dateLabel = dayDate(data.day).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -80,7 +80,8 @@ export function dashboard(workspace, data) {
     ${metric({ label: 'Food spending', value: money(spent), note: budget ? `of ${money(budget)} this month` : 'This month', symbol: 'spending', tone: 'blue', url: '#spending' })}
   </div>
   <div class="dashboard-grid">
-    ${card('Calorie trend', 'Daily energy from your food diary', calorieChart(data), '<span class="period">Last 7 days</span>')}
+    ${card('Calorie trend', calorieStatus === 'linked' ? 'Daily energy from Calorie Counter'
+      : 'Daily energy from your Fitness Agent diary', calorieChart(data), '<span class="period">Last 7 days</span>')}
     ${card('Up next', 'From your plan and daily routines', `<div class="next-list">
       ${nextRow('Meal plan', meals.length ? `${meals.length} planned for today` : 'Add a meal for today', '#planner', 'planner', 'violet')}
       ${nextRow('Grocery list', groceries.length ? `${groceries.length} items still to buy` : 'Build a list from your plan', '#planner', 'basket', '')}
@@ -264,7 +265,7 @@ export function settings(workspace) {
         ${btn('Export workspace', 'backup', 'download', '')}${btn('Restore workspace', 'restore', 'download', '')}
         <input type="file" id="restore-file" accept=".json,application/json" hidden></div>
         ${link('Import or export your food diary', './nutrition/#settings')}`)}
-      ${card('Imports and linked apps', 'Bring in IronLog workouts, Apple Health files, DrTrust reports, and store receipts.', link('Open Imports', '#imports'))}
+      ${card('Imports and linked apps', 'Link Calorie Counter or bring in IronLog workouts, health files, and store receipts.', link('Open Imports', '#imports'))}
       ${card('Connected services', 'Review the available data sources.', `<div class="integrations">
         <div><span>Food diary</span><span class="pill">Built in</span></div>
         <div><span>Zomato</span><span class="pill">Receipt import</span></div>

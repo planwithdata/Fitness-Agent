@@ -1,6 +1,7 @@
 import { emptyState } from './core.js';
 
 const databaseName = 'fitness-agent-nutrition-v1';
+const calorieCounterName = 'daily-katori-diary';
 const storeName = 'diary';
 const stateKey = 'state';
 
@@ -22,6 +23,30 @@ export function loadDiary(db) {
     const request = db.transaction(storeName).objectStore(storeName).get(stateKey);
     request.onsuccess = () => resolve(request.result || emptyState());
     request.onerror = () => reject(request.error);
+  });
+}
+
+export function readCalorieCounterDiary() {
+  return new Promise((resolve, reject) => {
+    // With no version argument an existing database opens at its current version.
+    const open = indexedDB.open(calorieCounterName);
+    let missing = false;
+    open.onupgradeneeded = () => {
+      missing = true;
+      open.transaction.abort();
+    };
+    open.onerror = () => missing ? resolve(null) : reject(open.error);
+    open.onsuccess = async () => {
+      const db = open.result;
+      db.onversionchange = () => db.close();
+      try {
+        resolve(await loadDiary(db));
+      } catch (error) {
+        reject(error);
+      } finally {
+        db.close();
+      }
+    };
   });
 }
 

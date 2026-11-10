@@ -7,6 +7,7 @@ import {
   nutritionReport, portionLimitShare, reportReference, summaryText, targetFor, trendReferenceStatus,
 } from './insights.js';
 import { loadDiary, openDiary, updateDiary } from './storage.js';
+import { calorieCounterUrl, calorieLinkStatus, createCalorieLink } from './calorie-link.js';
 import { registerOffline } from '../lib/shell.js';
 
 const broadcast = 'BroadcastChannel' in window ? new BroadcastChannel('fitness-agent-v1') : null;
@@ -23,7 +24,9 @@ const primary = nutrientKeys.slice(0, 5);
 const sourceTypes = ['Package label', 'Restaurant nutrition label', 'Restaurant estimate', 'Personal estimate'];
 const presets = ['Whey protein', 'ON Serious Mass', 'ON Creatine', 'BCAA', 'MIILD Protein Roti', 'Zomato order'];
 const guidanceUrl = 'https://www.nin.res.in/dietaryguidelines/pdfjs/locale/DGI24thJune2024fin.pdf';
-let db, state, catalog, day = today(), foodLimit = 24, alertTimer;
+let db, localState, state, catalog, day = today(), foodLimit = 24, alertTimer;
+let readOnly = false;
+const calorieLink = createCalorieLink(() => { if (localState) render(); });
 
 function element(tag, options = {}, ...children) {
   const node = document.createElement(tag);
@@ -45,9 +48,13 @@ function message(text, error = false) {
 }
 
 async function save(update, success, after) {
+  if (calorieLink.isEnabled()) {
+    message('Make diary changes in Calorie Counter, or disconnect the link to edit your Fitness Agent diary.', true);
+    return false;
+  }
   try {
-    state = await updateDiary(db, update);
-    broadcast?.postMessage('updated');
+    localState = await updateDiary(db, update);
+    broadcast?.postMessage('nutrition-updated');
     render();
     if (success) message(success);
     after?.();
@@ -107,6 +114,7 @@ function renderDiary() {
   $('day').value = day;
   const complete = state.completed[day] === true;
   $('complete').checked = complete;
+  $('complete').disabled = readOnly;
   const entries = state.entries.filter(entry => entry.day === day);
   const total = summarize(entries);
   const display = key => entries.length ? nutrient(key, total[key].value) : '—';
@@ -142,16 +150,16 @@ function renderDiary() {
     const header = element('div', { className: 'meal-head' }, element('div', {},
       element('h3', { textContent: meal }), element('small', { className: 'muted', textContent: list.length
         ? nutrient('kcal', summarize(list).kcal.value) : 'Ready when you are' })),
-      button('+ Add food', () => addFood(meal), ''));
+      ...(!readOnly ? [button('+ Add food', () => addFood(meal), '')] : []));
     const rows = list.map(entry => element('div', { className: 'entry' },
       element('div', { className: 'row-main' }, element('strong', { textContent: entry.name }),
         element('small', { textContent: `${size(entry.quantity, entry.unit)} · ${nutrient('kcal', entry.nutrients.kcal)}` }),
         portionLimitBadges(entry.nutrients)),
-      button('Edit', () => editEntry(entry))));
+      readOnly ? button('View', () => inspectEntry(entry)) : button('Edit', () => editEntry(entry))));
     const footer = element('div', { className: 'actions' });
-    if (list.length) footer.append(button('Save this meal', () => saveMeal(meal, list)),
-      button('Preview a change', () => showMealPreview(meal)));
-    if (state.savedMeals.length) footer.append(button('Repeat saved meal', () => repeatMeal(meal)));
+    if (list.length && !readOnly) footer.append(button('Save this meal', () => saveMeal(meal, list)));
+    if (list.length) footer.append(button('Preview a change', () => showMealPreview(meal)));
+    if (!readOnly && state.savedMeals.length) footer.append(button('Repeat saved meal', () => repeatMeal(meal)));
     return element('article', { className: 'panel meal' }, header,
       ...(rows.length ? rows : [element('p', { className: 'empty', textContent: 'Nothing logged here yet.' })]), footer);
   }));
@@ -167,11 +175,15 @@ function renderFoods() {
   $('catalog-count').textContent = `${results.length} matching foods · ${allFoods().length} in your catalog`;
   $('catalog-list').replaceChildren(...results.slice(0, foodLimit).map(food => foodRow(food, inspectFood, 'View')));
   $('more-foods').hidden = results.length <= foodLimit;
-  $('saved-meals').replaceChildren(...state.savedMeals.map(item => element('div', { className: 'food-row' },
-    element('div', { className: 'row-main' }, element('strong', { textContent: item.name }),
-      element('small', { textContent: item.entries.map(entry => entry.name).join(', ') })),
-    button('Remove', () => confirmAction('Remove saved meal', `Remove “${item.name}” from saved meals?`, 'Remove',
-      () => save(draft => { draft.savedMeals = draft.savedMeals.filter(meal => meal.id !== item.id); }, 'Saved meal removed.'))))));
+  const savedMeals = state.savedMeals.map(item => {
+    const row = element('div', { className: 'food-row' },
+      element('div', { className: 'row-main' }, element('strong', { textContent: item.name }),
+        element('small', { textContent: item.entries.map(entry => entry.name).join(', ') })));
+    if (!readOnly) row.append(button('Remove', () => confirmAction('Remove saved meal', `Remove “${item.name}” from saved meals?`, 'Remove',
+      () => save(draft => { draft.savedMeals = draft.savedMeals.filter(meal => meal.id !== item.id); }, 'Saved meal removed.'))));
+    return row;
+  });
+  $('saved-meals').replaceChildren(...savedMeals);
   if (!state.savedMeals.length) $('saved-meals').append(element('p', { className: 'empty', textContent: 'Your saved meals will appear here.' }));
 }
 
@@ -518,12 +530,21 @@ function renderSettings() {
   for (const key of ['kcal', 'protein', 'diet', 'goal']) fields[key].value = state.settings[key] ?? '';
   for (const key of targetKeys.slice(2)) fields[key].value = targetFor(state.settings, key) ?? '';
   fields.showReferences.checked = state.settings.showReferences !== false;
+  for (const field of fields) field.disabled = readOnly;
   $('last-backup').textContent = state.settings.lastBackup
     ? `Last backup export requested ${new Date(state.settings.lastBackup).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`
     : 'No backup exported yet.';
 }
 
 function render() {
+  const info = calorieLink.getInfo();
+  if (readOnly !== info.enabled && dialog.open) dialog.close();
+  readOnly = info.enabled;
+  state = info.diary ?? localState;
+  $('calorie-link-banner').hidden = !readOnly;
+  $('calorie-link-status').textContent = calorieLinkStatus(info);
+  $('calorie-link-manage').textContent = readOnly ? 'Manage Calorie Counter link' : 'Link Calorie Counter';
+  for (const control of document.querySelectorAll('[data-diary-edit]')) control.hidden = readOnly;
   const current = tabs.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'diary';
   for (const tab of tabs) {
     $(tab).hidden = tab !== current;
@@ -558,6 +579,12 @@ function addFood(meal) {
   update();
 }
 
+function inspectEntry(entry) {
+  showDialog(entry.name, element('div', { className: 'stack' },
+    element('p', { className: 'muted', textContent: `${entry.meal} · ${prettyDay(entry.day)} · ${size(entry.quantity, entry.unit)}` }),
+    sourceInfo(entry.source), nutrientGrid(nutrientKeys, key => nutrient(key, entry.nutrients[key]))));
+}
+
 function inspectFood(food) {
   const favorite = state.favorites.includes(food.id);
   const panel = element('div', { className: 'stack' },
@@ -569,6 +596,13 @@ function inspectFood(food) {
       return `${ingredient?.name || item.id} · ${size(item.amount, ingredient?.basis || 'g')}`;
     });
     panel.append(element('p', { className: 'muted', textContent: `Batch ingredients: ${parts.join(', ')}` }));
+  }
+  if (readOnly) {
+    const portions = [...(food.portions ?? []), ...state.portions.filter(item => item.foodId === food.id)];
+    if (portions.length) panel.append(element('p', { className: 'muted',
+      textContent: 'Portions · ' + portions.map(item => `${item.label} (${size(item.amount, food.basis)})`).join(', ') }));
+    showDialog(food.name, panel);
+    return;
   }
   const meal = element('select', {}, ...meals.map(value => element('option', { value, textContent: value })));
   const actions = element('div', { className: 'actions' }, button('Log food', () => choosePortion(food, meal.value), ''),
@@ -969,12 +1003,14 @@ function bind() {
   };
   $('backup').onclick = async () => {
     const exportedAt = new Date().toISOString();
-    await save(draft => { draft.settings.lastBackup = exportedAt; }, 'Backup export requested.', () =>
-      download(`fitness-agent-nutrition-${today()}.json`, JSON.stringify({ version: backupVersion, exportedAt, data: state }, null, 2), 'application/json'));
+    const exportDiary = () => download(`fitness-agent-nutrition-${today()}.json`,
+      JSON.stringify({ version: backupVersion, exportedAt, data: state }, null, 2), 'application/json');
+    if (calorieLink.isEnabled()) exportDiary();
+    else await save(draft => { draft.settings.lastBackup = exportedAt; }, 'Backup export requested.', exportDiary);
   };
   $('csv').onclick = async () => {
     try {
-      const latest = await loadDiary(db);
+      const latest = calorieLink.isEnabled() ? state : await loadDiary(db);
       download(`fitness-agent-nutrition-${today()}.csv`, '\uFEFF' + diaryCsv(latest.entries), 'text/csv;charset=utf-8');
     } catch { message('Could not export the diary.', true); }
   };
@@ -1007,12 +1043,14 @@ function bind() {
     aliases: ['example'], nutrients: { kcal: 100, protein: 4 }, portions: [{ label: 'serving', amount: 75 }],
     source: { label: 'Package label', note: 'Nutrients in this file are per 100 g.' },
   }], null, 2), 'application/json');
+  $('calorie-counter-url').href = calorieCounterUrl;
   window.addEventListener('hashchange', render);
-  window.addEventListener('pageshow', async event => {
-    if (event.persisted) {
-      try { state = await loadDiary(db); render(); } catch { message('Could not refresh the local diary.', true); }
-    }
-  });
+  const refreshLocal = async () => {
+    try { localState = await loadDiary(db); if (!readOnly) render(); }
+    catch { message('Could not refresh the local diary.', true); }
+  };
+  window.addEventListener('pageshow', event => { if (event.persisted) refreshLocal(); });
+  broadcast?.addEventListener('message', event => { if (event.data === 'nutrition-updated') refreshLocal(); });
 }
 
 async function init() {
@@ -1021,8 +1059,9 @@ async function init() {
     if (!response.ok) throw new Error('The food catalog could not load.');
     db = database;
     catalog = validateCatalog(await response.json());
-    state = await loadDiary(db);
+    localState = await loadDiary(db);
     bind();
+    await calorieLink.watch();
     if (location.hash === '#foods') {
       try {
         $('catalog-query').value = sessionStorage.getItem('fitness-agent:diary-query') ?? '';

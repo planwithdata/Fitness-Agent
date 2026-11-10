@@ -1,4 +1,5 @@
 import { money } from './domain.js';
+import { calorieCounterUrl, calorieLinkStatus } from '../nutrition/calorie-link.js';
 import { btn, escape } from './views.js';
 import { calendarDate, fileKey, ironLogBackup, ironLogPreference, ironLogSessions, ironLogStorageKey,
   ironLogUrl, measurements, measurementText, mergeUnique, newestMeasurements, providers, visibleWorkouts } from './import-model.js';
@@ -15,14 +16,21 @@ function importCard(title, detail, body) {
   return `<section class="card stack"><div><h2>${title}</h2><p class="muted">${detail}</p></div>${body}</section>`;
 }
 
-export function importsPage(workspace, info) {
+export function importsPage(workspace, info, calorie) {
   const { enabled, available, count, issue } = info;
   const status = issue || (count ? countText(count, 'completed workout') + ' linked in this browser.'
     : enabled ? 'Waiting for IronLog workouts in this browser. Open IronLog here or use a JSON backup.'
       : 'Off. Enable to show completed IronLog workouts from the same browser profile.');
   return `<div class="hero-head"><div><p class="eyeline">DATA SOURCES</p><h1>Imports</h1>
-    <p class="lede">Bring your workouts, measurements and purchases into one workspace.</p></div></div>
+    <p class="lede">Bring your food diary, workouts, measurements and purchases into one workspace.</p></div></div>
     <div class="split"><div class="pane">
+    ${importCard('Calorie Counter', 'Use the diary from your separate Calorie Counter app in Today, Nutrition and Coach.', `
+      <p class="import-status" role="status">${calorieLinkStatus(calorie)}</p>
+      <div class="action-row">
+        ${calorie.available ? btn(calorie.enabled ? 'Disconnect Calorie Counter' : 'Link Calorie Counter', 'calorie-link',
+          calorie.enabled ? 'close' : 'check', calorie.enabled ? '' : 'mint') : ''}
+        <a class="text-link" href="${calorieCounterUrl}" target="_blank" rel="noopener noreferrer">Open Calorie Counter ↗</a>
+      </div><p class="field-help">Open both apps in the same browser profile. Meals, personal foods, recipes, favorites, portions, saved meals and nutrition settings refresh automatically. Log and edit food in Calorie Counter. Disconnect to return to your Fitness Agent diary.</p>`)}
     ${importCard('Project IronLog', 'Bring over completed sessions and their working sets.', `
       <p class="import-status" role="status">${escape(status)}</p>
       <div class="action-row">
@@ -45,7 +53,7 @@ export function importsPage(workspace, info) {
       <p class="field-help">Pick up to ${receiptLimit} PDF or text files at once. For a screenshot or scanned receipt, copy its text with iPhone Live Text and paste it here. Use the complete order summary for the amount paid.</p>
       <input id="import-receipt" data-import="receipt" type="file" accept=".pdf,.txt,application/pdf,text/plain" multiple hidden>`)}
     ${importCard('Automation and privacy', 'Files are read in this browser. Only confirmed records are saved.', `
-      <p class="muted">IronLog can refresh automatically in the same browser. Apple Health, DrTrust and store receipts use files you select. The setup guide covers iPhone Shortcuts and provider access.</p>
+      <p class="muted">Calorie Counter and IronLog can refresh automatically in the same browser. Apple Health, DrTrust and store receipts use files you select. The setup guide covers iPhone Shortcuts and provider access.</p>
       <a class="text-link" href="${help}" target="_blank" rel="noopener noreferrer">Read the setup guide ↗</a>`)}
     </div></div>`;
 }

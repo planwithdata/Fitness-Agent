@@ -1,5 +1,6 @@
 import { today } from './nutrition/core.js';
 import { loadDiary, openDiary } from './nutrition/storage.js';
+import { calorieCounterUrl, createCalorieLink } from './nutrition/calorie-link.js';
 import { createImports, importsPage } from './lib/imports-ui.js';
 import { ironLogPreference, ironLogStorageKey } from './lib/import-model.js';
 import { localReply, modelContext, prompts } from './lib/coach.js';
@@ -15,14 +16,18 @@ const main = $('#main');
 const toast = $('.toast');
 const model = Boolean(document.querySelector('meta[name="fitness-agent-model"]'));
 const broadcast = 'BroadcastChannel' in window ? new BroadcastChannel('fitness-agent-v1') : null;
-const views = { today: dashboard, workout: workouts, planner, spending, settings };
-const routes = new Set([...Object.keys(views), 'coach', 'imports']);
+const views = { planner, spending, settings };
+const routes = new Set([...Object.keys(views), 'today', 'workout', 'coach', 'imports']);
 let db, diaryDb, diary, state, activeView, lastDay, toastTimer, offlineReady, refreshing;
 let coachBusy = false;
 let workspaceRevision = 0;
 let planDate = today();
 const imports = createImports({ getState: () => state, edit, render, notify, modalForm });
 const workspaceView = () => ({ ...state, workouts: imports.visibleWorkouts(state.workouts) });
+const calorieLink = createCalorieLink(() => {
+  if (['today', 'imports'].includes(route())) render();
+});
+const nutritionDiary = () => calorieLink.getInfo().diary ?? diary;
 
 function route() {
   const hash = location.hash.slice(1);
@@ -52,14 +57,15 @@ function render() {
   if (lastDay && planDate === lastDay) planDate = today();
   lastDay = today();
   const workspace = workspaceView();
-  const data = snapshot(workspace, diary, lastDay);
+  const data = snapshot(workspace, nutritionDiary(), lastDay);
   if (changed) {
     renderShell(page);
     document.title = `Fitness Agent · ${sections[page]}`;
     activeView = page;
   }
   if (page === 'coach') main.innerHTML = coach(workspace, model, coachBusy);
-  else if (page === 'imports') main.innerHTML = importsPage(state, imports.getInfo());
+  else if (page === 'imports') main.innerHTML = importsPage(state, imports.getInfo(), calorieLink.getInfo());
+  else if (page === 'today') main.innerHTML = dashboard(workspace, data, calorieLink.getInfo().status);
   else if (page === 'workout') main.innerHTML = workouts(workspace, data, imports.isLinked);
   else main.innerHTML = views[page](workspace, data, planDate);
   if (page === 'coach') {
@@ -181,7 +187,7 @@ async function ask(question) {
   const text = question.trim();
   if (!text || text.length > 500 || coachBusy) return;
   const workspace = workspaceView();
-  const data = snapshot(workspace, diary);
+  const data = snapshot(workspace, nutritionDiary());
   const useModel = model && $('#use-model')?.checked;
   coachBusy = true;
   render();
@@ -217,8 +223,15 @@ async function ask(question) {
 
 const actions = {
   ...imports.actions,
+  'calorie-link': async () => {
+    await calorieLink.setEnabled(!calorieLink.isEnabled());
+    const { status } = calorieLink.getInfo();
+    if (status === 'linked') notify('Calorie Counter linked.');
+    else if (status === 'off') notify('Using your Fitness Agent diary.');
+  },
   quick: () => showDialog('Quick add', `<div class="stack">
-    <a class="btn mint" href="./nutrition/#diary">${icon('nutrition', 17)} Log food</a>
+    <a class="btn mint" href="${calorieLink.isEnabled() ? calorieCounterUrl : './nutrition/#diary'}">${icon('nutrition', 17)}
+      ${calorieLink.isEnabled() ? 'Log in Calorie Counter' : 'Log food'}</a>
     ${btn('Log workout', 'add:workouts', 'workout', '')}
     ${btn('Plan a meal', 'add:meals', 'planner', '')}
     ${btn('Add expense', 'add:expenses', 'spending', '')}
@@ -351,6 +364,7 @@ async function start() {
     [db, diaryDb] = await Promise.all([openWorkspace(), openDiary()]);
     [state, diary] = await Promise.all([loadWorkspace(db), loadDiary(diaryDb)]);
     imports.refreshIronLog();
+    await calorieLink.watch();
     render();
   } catch {
     state = null;
