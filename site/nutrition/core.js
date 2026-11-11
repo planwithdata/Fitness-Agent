@@ -176,8 +176,8 @@ const timestamp = value => typeof value === 'string' && Number.isFinite(Date.par
 const unique = values => new Set(values).size === values.length;
 const source = value => record(value) && string(value.label) && optionalString(value.note)
   && (value.url === undefined || (string(value.url) && /^https?:\/\//i.test(value.url)));
-const nutrition = value => record(value) && Number.isFinite(value.kcal) && Object.entries(value)
-  .every(([key, amount]) => nutrientKeys.includes(key) && Number.isFinite(amount) && amount >= 0 && amount <= 1e10);
+const nutrition = (value, max = 1e10) => record(value) && Number.isFinite(value.kcal) && Object.entries(value)
+  .every(([key, amount]) => nutrientKeys.includes(key) && Number.isFinite(amount) && amount >= 0 && amount <= max);
 const portion = value => record(value) && string(value.label) && positive(value.amount);
 
 export function isFood(food) {
@@ -193,7 +193,7 @@ function isEntry(entry) {
   return record(entry) && string(entry.id) && string(entry.foodId) && string(entry.name)
     && string(entry.category) && basis(entry.basis) && positive(entry.quantity) && positive(entry.factor)
     && positive(entry.quantity * entry.factor) && string(entry.unit) && meals.includes(entry.meal)
-    && isoDate(entry.day) && timestamp(entry.createdAt) && source(entry.source) && nutrition(entry.nutrients);
+    && isoDate(entry.day) && timestamp(entry.createdAt) && source(entry.source) && nutrition(entry.nutrients, 1e15);
 }
 
 export function validateCatalog(list) {

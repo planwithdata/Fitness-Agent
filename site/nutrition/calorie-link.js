@@ -17,15 +17,25 @@ export function linkedDiaryState(raw) {
   return validateBackup({ version: backupVersion, data: state });
 }
 
+export function calorieBackupState(backup) {
+  if (backup?.version !== backupVersion) throw new Error('Choose a Calorie Counter JSON backup from Settings → Download JSON.');
+  return linkedDiaryState(backup.data);
+}
+
+export function latestDiaryDay(entries) {
+  return entries.reduce((day, entry) => entry.day > day ? entry.day : day, '');
+}
+
 export function calorieLinkStatus(info) {
   if (info.status === 'linked') {
     const { entries, foods } = info.diary;
     const entryLabel = entries.length === 1 ? 'diary entry' : 'diary entries';
     const foodLabel = foods.length === 1 ? 'personal food' : 'personal foods';
-    return `Linked · ${entries.length} ${entryLabel} · ${foods.length} ${foodLabel}`;
+    const latest = latestDiaryDay(entries);
+    return `Linked · ${entries.length} ${entryLabel} · ${foods.length} ${foodLabel}${latest ? ' · Latest log ' + latest : ''}`;
   }
-  if (info.status === 'waiting') return 'Waiting for Calorie Counter in this browser. Showing the Fitness Agent diary.';
-  if (info.status === 'error') return 'Calorie Counter could not be read. Showing the Fitness Agent diary.';
+  if (info.status === 'waiting') return 'No saved Calorie Counter diary is visible here. Use both apps in regular tabs of the same browser profile, or import a JSON backup.';
+  if (info.status === 'error') return 'Calorie Counter could not be read here. Refresh the link or try its JSON backup.';
   if (info.status === 'checking') return 'Checking this browser for the Calorie Counter diary…';
   return info.available ? 'Off · Link once to refresh automatically' : 'Available on the shared GitHub Pages site';
 }
@@ -87,5 +97,5 @@ export function createCalorieLink(onChange) {
     return refresh();
   }
 
-  return { getInfo: () => info, isEnabled, setEnabled, watch };
+  return { getInfo: () => info, isEnabled, setEnabled, refresh, watch };
 }

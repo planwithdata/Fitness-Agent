@@ -1,13 +1,13 @@
 import {
   backupVersion, calculateRecipe, diaryCsv, findFoods, makeEntry, meals, nutrients, nutrientKeys,
-  parseQuantity, prettyDay, scaleMealEntries, shiftDay, summarize, targetKeys, today, upperTargets, validateBackup, validateCatalog, weeklyReview,
+  parseQuantity, prettyDay, scaleMealEntries, shiftDay, summarize, targetKeys, today, upperTargets, validateCatalog, weeklyReview,
 } from './core.js';
 import {
   adultReferences, compareMeal, dayReferenceStatus, foodContributions, mealGroups, mealSuggestions,
   nutritionReport, portionLimitShare, reportReference, summaryText, targetFor, trendReferenceStatus,
 } from './insights.js';
 import { loadDiary, openDiary, updateDiary } from './storage.js';
-import { calorieCounterUrl, calorieLinkStatus, createCalorieLink } from './calorie-link.js';
+import { calorieBackupState, calorieCounterUrl, calorieLinkStatus, createCalorieLink, latestDiaryDay } from './calorie-link.js';
 import { registerOffline } from '../lib/shell.js';
 
 const broadcast = 'BroadcastChannel' in window ? new BroadcastChannel('fitness-agent-v1') : null;
@@ -543,6 +543,7 @@ function render() {
   state = info.diary ?? localState;
   $('calorie-link-banner').hidden = !readOnly;
   $('calorie-link-status').textContent = calorieLinkStatus(info);
+  $('latest-linked-day').hidden = !info.diary?.entries.length;
   $('calorie-link-manage').textContent = readOnly ? 'Manage Calorie Counter link' : 'Link Calorie Counter';
   for (const control of document.querySelectorAll('[data-diary-edit]')) control.hidden = readOnly;
   const current = tabs.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'diary';
@@ -1019,7 +1020,7 @@ function bind() {
     try {
       const json = await readJson(event.target);
       if (json === undefined) return;
-      const restored = validateBackup(json);
+      const restored = calorieBackupState(json);
       confirmAction('Restore this backup?', `This file contains ${restored.entries.length} entries, ${restored.foods.length} custom foods and ${restored.savedMeals.length} saved meals. Restoring replaces the current diary and settings on this device.`, 'Replace local diary',
         () => save(() => restored, 'Backup restored.'));
     } catch (error) { message(error.message, true); }
@@ -1044,6 +1045,10 @@ function bind() {
     source: { label: 'Package label', note: 'Nutrients in this file are per 100 g.' },
   }], null, 2), 'application/json');
   $('calorie-counter-url').href = calorieCounterUrl;
+  $('latest-linked-day').onclick = () => {
+    goToDay(latestDiaryDay(state.entries));
+    location.hash = 'diary';
+  };
   window.addEventListener('hashchange', render);
   const refreshLocal = async () => {
     try { localState = await loadDiary(db); if (!readOnly) render(); }
@@ -1062,6 +1067,8 @@ async function init() {
     localState = await loadDiary(db);
     bind();
     await calorieLink.watch();
+    const requestedDay = new URLSearchParams(location.search).get('day');
+    if ((calorieLink.getInfo().diary ?? localState).entries.some(entry => entry.day === requestedDay)) day = requestedDay;
     if (location.hash === '#foods') {
       try {
         $('catalog-query').value = sessionStorage.getItem('fitness-agent:diary-query') ?? '';

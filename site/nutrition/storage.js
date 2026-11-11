@@ -18,10 +18,10 @@ export function openDiary() {
   });
 }
 
-export function loadDiary(db) {
+export function loadDiary(db, fallback = emptyState()) {
   return new Promise((resolve, reject) => {
     const request = db.transaction(storeName).objectStore(storeName).get(stateKey);
-    request.onsuccess = () => resolve(request.result || emptyState());
+    request.onsuccess = () => resolve(request.result ?? fallback);
     request.onerror = () => reject(request.error);
   });
 }
@@ -40,7 +40,7 @@ export function readCalorieCounterDiary() {
       const db = open.result;
       db.onversionchange = () => db.close();
       try {
-        resolve(await loadDiary(db));
+        resolve(await loadDiary(db, null));
       } catch (error) {
         reject(error);
       } finally {

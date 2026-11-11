@@ -1,6 +1,6 @@
 import { today } from './nutrition/core.js';
-import { loadDiary, openDiary } from './nutrition/storage.js';
-import { calorieCounterUrl, createCalorieLink } from './nutrition/calorie-link.js';
+import { loadDiary, openDiary, updateDiary } from './nutrition/storage.js';
+import { calorieBackupState, calorieCounterUrl, createCalorieLink, latestDiaryDay } from './nutrition/calorie-link.js';
 import { createImports, importsPage } from './lib/imports-ui.js';
 import { ironLogPreference, ironLogStorageKey } from './lib/import-model.js';
 import { localReply, modelContext, prompts } from './lib/coach.js';
@@ -21,6 +21,7 @@ const routes = new Set([...Object.keys(views), 'today', 'workout', 'coach', 'imp
 let db, diaryDb, diary, state, activeView, lastDay, toastTimer, offlineReady, refreshing;
 let coachBusy = false;
 let workspaceRevision = 0;
+let diaryRevision = 0;
 let planDate = today();
 const imports = createImports({ getState: () => state, edit, render, notify, modalForm });
 const workspaceView = () => ({ ...state, workouts: imports.visibleWorkouts(state.workouts) });
@@ -221,8 +222,31 @@ async function ask(question) {
   }
 }
 
+async function importCalorieBackup(file) {
+  if (!file) return;
+  if (file.size > 30 * 1024 * 1024) throw new Error('Choose a Calorie Counter backup smaller than 30 MB.');
+  let payload;
+  try { payload = JSON.parse(await file.text()); }
+  catch { throw new Error('This file is not valid JSON. Download a fresh backup from Calorie Counter.'); }
+  const restored = calorieBackupState(payload);
+  modalForm('Import Calorie Counter backup?', `<p class="muted">This file contains ${restored.entries.length} diary entries,
+    ${restored.foods.length} personal foods and ${restored.savedMeals.length} saved meals. Importing replaces the Fitness Agent
+    nutrition diary and selects it as the active source. You can link Calorie Counter again from Imports.</p>`, 'Import backup', async () => {
+    diary = await updateDiary(diaryDb, () => restored);
+    diaryRevision += 1;
+    if (calorieLink.isEnabled()) await calorieLink.setEnabled(false);
+    broadcast?.postMessage('nutrition-updated');
+    render();
+    notify('Calorie Counter backup imported.');
+    const latest = latestDiaryDay(restored.entries);
+    return () => { location.href = latest ? `./nutrition/?day=${latest}#diary` : './nutrition/#foods'; };
+  });
+}
+
 const actions = {
   ...imports.actions,
+  'pick-calorie-backup': () => $('#calorie-backup-file').click(),
+  'calorie-refresh': () => calorieLink.refresh(),
   'calorie-link': async () => {
     await calorieLink.setEnabled(!calorieLink.isEnabled());
     const { status } = calorieLink.getInfo();
@@ -305,6 +329,12 @@ document.addEventListener('submit', async event => {
 
 document.addEventListener('change', async ({ target }) => {
   try {
+    if (target.id === 'calorie-backup-file') {
+      const [file] = target.files;
+      target.value = '';
+      await importCalorieBackup(file);
+      return;
+    }
     if (target.dataset.import && target.files) {
       const files = [...target.files];
       target.value = '';
@@ -327,11 +357,12 @@ async function refresh() {
   if (!db || !diaryDb || refreshing) return;
   refreshing = true;
   const revision = workspaceRevision;
+  const nutritionRevision = diaryRevision;
   try {
     const [nextState, nextDiary] = await Promise.all([loadWorkspace(db), loadDiary(diaryDb)]);
     if (JSON.stringify(state) !== JSON.stringify(nextState) || JSON.stringify(diary) !== JSON.stringify(nextDiary) || lastDay !== today()) {
       if (revision === workspaceRevision) state = nextState;
-      diary = nextDiary;
+      if (nutritionRevision === diaryRevision) diary = nextDiary;
       render();
     }
   } catch (error) {

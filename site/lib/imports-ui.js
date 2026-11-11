@@ -29,8 +29,11 @@ export function importsPage(workspace, info, calorie) {
       <div class="action-row">
         ${calorie.available ? btn(calorie.enabled ? 'Disconnect Calorie Counter' : 'Link Calorie Counter', 'calorie-link',
           calorie.enabled ? 'close' : 'check', calorie.enabled ? '' : 'mint') : ''}
+        ${calorie.enabled ? btn('Refresh link', 'calorie-refresh', 'check', '') : ''}
+        ${btn('Import JSON backup', 'pick-calorie-backup', 'download', '')}
         <a class="text-link" href="${calorieCounterUrl}" target="_blank" rel="noopener noreferrer">Open Calorie Counter ↗</a>
-      </div><p class="field-help">Open both apps in the same browser profile. Meals, personal foods, recipes, favorites, portions, saved meals and nutrition settings refresh automatically. Log and edit food in Calorie Counter. Disconnect to return to your Fitness Agent diary.</p>`)}
+      </div><input id="calorie-backup-file" type="file" accept=".json,application/json" hidden>
+      <p class="field-help">For a file import, use Settings → Download JSON in Calorie Counter. Open both apps in the same browser profile for the live link. Meals, personal foods, recipes, favorites, portions, saved meals and nutrition settings refresh automatically. Log and edit food in Calorie Counter. Disconnect to return to your Fitness Agent diary.</p>`)}
     ${importCard('Project IronLog', 'Bring over completed sessions and their working sets.', `
       <p class="import-status" role="status">${escape(status)}</p>
       <div class="action-row">

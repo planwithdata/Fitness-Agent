@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { emptyState, makeEntry, today } from '../site/nutrition/core.js';
-import { calorieLinkStatus, linkedDiaryState } from '../site/nutrition/calorie-link.js';
+import { calorieBackupState, calorieLinkStatus, linkedDiaryState } from '../site/nutrition/calorie-link.js';
 import { emptyWorkspace, snapshot } from '../site/lib/domain.js';
 
 test('linked Calorie Counter data keeps personal foods, portions, meals and targets together', () => {
@@ -35,4 +35,17 @@ test('linked diary accepts older snapshots with absent collections and rejects m
   });
   assert.throws(() => linkedDiaryState({ entries: [], foods: {} }), /invalid diary data/);
   assert.throws(() => linkedDiaryState({ foo: 1 }), /Unrecognized Calorie Counter/);
+});
+
+
+test('Calorie Counter backups preserve nutrients for portions accepted by the source diary', () => {
+  const data = emptyState();
+  const food = { id: 'custom-large', name: 'Custom label', category: 'Custom food', basis: 'g',
+    source: { label: 'Package label' }, nutrients: { kcal: 1e10, protein: 22, fiber: 0 } };
+  data.foods.push(food);
+  data.entries.push(makeEntry(food, 200, 'g', 1, 'Lunch', '2026-10-01'));
+  assert.deepEqual(calorieBackupState({ version: 1, data }), data);
+  assert.deepEqual(linkedDiaryState(data), data);
+  assert.equal(data.entries[0].nutrients.kcal, 2e10);
+  assert.throws(() => calorieBackupState({ version: 2, data }), /Calorie Counter JSON backup/);
 });
