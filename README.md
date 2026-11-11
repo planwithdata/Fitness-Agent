@@ -15,6 +15,12 @@ A private, iPhone-first workspace for nutrition, workouts, meal planning, grocer
 
 On iPhone, open Fitness Agent in Safari and choose **Share → Add to Home Screen**. Once Settings shows **Ready for offline use**, the main workspace and food diary can open without a network connection. Check-ins are shown inside the app.
 
+## See what worked
+
+In Coach, choose Daily, Weekly, or Monthly and an end date. The views cover one, seven, or thirty days ending on that date. Consistency and daily nutrient averages show the preceding period alongside the selected period. Averages use food days marked complete with values for the nutrient across every logged entry. Protein comparisons use your current target.
+
+Strength comparisons use IronLog working sets for the same recorded exercise name. Coach looks for a shared load or rep count and shows the two session dates. Body trends compare one reading per day from the same source. Findings include the records behind the observation and a way to check whether it repeats. Ask Coach about the selected period, or include a period or an ISO date in your question. The review and its answers run locally.
+
 ## Read-only imports
 
 Open **Settings → Imports**, or use the [Imports screen](https://planwithdata.github.io/Fitness-Agent/#imports).

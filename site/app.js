@@ -2,8 +2,9 @@ import { today } from './nutrition/core.js';
 import { loadDiary, openDiary, updateDiary } from './nutrition/storage.js';
 import { calorieBackupState, calorieCounterUrl, createCalorieLink, latestDiaryDay } from './nutrition/calorie-link.js';
 import { createImports, importsPage } from './lib/imports-ui.js';
-import { ironLogPreference, ironLogStorageKey } from './lib/import-model.js';
+import { calendarDate, ironLogPreference, ironLogStorageKey } from './lib/import-model.js';
 import { localReply, modelContext, prompts } from './lib/coach.js';
+import { progressReply, progressReview, reviewPeriods, reviewQuestions } from './lib/progress-review.js';
 import { groceryDraft, snapshot } from './lib/domain.js';
 import { defaults, kinds, profileFields, readFields, templates, workspaceFromBackup } from './lib/records.js';
 import { loadWorkspace, openWorkspace, saveWorkspace } from './lib/storage.js';
@@ -20,13 +21,14 @@ const views = { planner, spending, settings };
 const routes = new Set([...Object.keys(views), 'today', 'workout', 'coach', 'imports']);
 let db, diaryDb, diary, state, activeView, lastDay, toastTimer, offlineReady, refreshing;
 let coachBusy = false;
+const reviewSelection = { period: 'weekly', end: '' };
 let workspaceRevision = 0;
 let diaryRevision = 0;
 let planDate = today();
 const imports = createImports({ getState: () => state, edit, render, notify, modalForm });
 const workspaceView = () => ({ ...state, workouts: imports.visibleWorkouts(state.workouts) });
 const calorieLink = createCalorieLink(() => {
-  if (['today', 'imports'].includes(route())) render();
+  if (['today', 'imports', 'coach'].includes(route())) render();
 });
 const nutritionDiary = () => calorieLink.getInfo().diary ?? diary;
 
@@ -54,7 +56,11 @@ function render() {
   if (!state || !diary) return;
   const page = route();
   const changed = page !== activeView;
-  const hadChatFocus = page === 'coach' && document.activeElement?.matches('#coach-form input');
+  const chatInput = page === 'coach' ? $('#coach-form input') : null;
+  const chatDraft = chatInput?.value ?? '';
+  const hadChatFocus = chatInput && document.activeElement === chatInput;
+  const selectedControl = page === 'coach' && ['review-period', 'review-end'].includes(document.activeElement?.id)
+    ? document.activeElement.id : null;
   if (lastDay && planDate === lastDay) planDate = today();
   lastDay = today();
   const workspace = workspaceView();
@@ -64,7 +70,10 @@ function render() {
     document.title = `Fitness Agent · ${sections[page]}`;
     activeView = page;
   }
-  if (page === 'coach') main.innerHTML = coach(workspace, model, coachBusy);
+  if (page === 'coach') {
+    const review = progressReview(workspace, nutritionDiary(), reviewSelection.period, reviewSelection.end || lastDay);
+    main.innerHTML = coach(workspace, model, coachBusy, review, reviewSelection, lastDay);
+  }
   else if (page === 'imports') main.innerHTML = importsPage(state, imports.getInfo(), calorieLink.getInfo());
   else if (page === 'today') main.innerHTML = dashboard(workspace, data, calorieLink.getInfo().status);
   else if (page === 'workout') main.innerHTML = workouts(workspace, data, imports.isLinked);
@@ -72,7 +81,9 @@ function render() {
   if (page === 'coach') {
     const log = $('.chat-log');
     log.scrollTop = log.scrollHeight;
-    if (hadChatFocus) $('#coach-form input')?.focus();
+    $('#coach-form input').value = chatDraft;
+    if (hadChatFocus) $('#coach-form input').focus({ preventScroll: true });
+    if (selectedControl) document.getElementById(selectedControl).focus({ preventScroll: true });
   }
   offlineNote();
 }
@@ -189,12 +200,16 @@ async function ask(question) {
   if (!text || text.length > 500 || coachBusy) return;
   const workspace = workspaceView();
   const data = snapshot(workspace, nutritionDiary());
-  const useModel = model && $('#use-model')?.checked;
+  const reviewed = progressReply(text, workspace, nutritionDiary(),
+    { ...reviewSelection, end: reviewSelection.end || data.day }, data.day);
+  const useModel = !reviewed && model && $('#use-model')?.checked;
+  const input = $('#coach-form input');
+  if (input) input.value = '';
   coachBusy = true;
   render();
   try {
     let role = 'local';
-    let answer = localReply(text, data, workspace);
+    let answer = reviewed ?? localReply(text, data, workspace);
     if (useModel) {
       try {
         const response = await fetch('./api/coach', {
@@ -245,6 +260,8 @@ async function importCalorieBackup(file) {
 
 const actions = {
   ...imports.actions,
+  'review-chat': () => $('#coach-form input')?.focus(),
+  'review-question': index => ask(reviewQuestions[index]),
   'pick-calorie-backup': () => $('#calorie-backup-file').click(),
   'calorie-refresh': () => calorieLink.refresh(),
   'calorie-link': async () => {
@@ -329,6 +346,15 @@ document.addEventListener('submit', async event => {
 
 document.addEventListener('change', async ({ target }) => {
   try {
+    if (target.id === 'review-period' && Object.hasOwn(reviewPeriods, target.value)) {
+      reviewSelection.period = target.value;
+      render();
+    }
+    if (target.id === 'review-end') {
+      const date = calendarDate(target.value);
+      if (date && date <= today()) reviewSelection.end = date;
+      render();
+    }
     if (target.id === 'calorie-backup-file') {
       const [file] = target.files;
       target.value = '';

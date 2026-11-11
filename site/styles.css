@@ -202,3 +202,13 @@ hr { width: 100%; border: 0; border-top: 1px solid var(--line); }
 .measurement-grid small { color: var(--muted); font-size: .72rem; }
 .measurement-grid strong { font-size: 1.28rem; margin: 3px 0; }
 .diary-match { color: var(--mint); text-decoration: underline; padding-inline: 5px; white-space: nowrap; }
+.review-heading, .review-filters { display: flex; gap: .8rem; flex-wrap: wrap; align-items: end; justify-content: space-between; }
+.review-filters { justify-content: flex-start; }
+.review-filters .field { flex: 0 1 13rem; }
+.review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: .65rem; }
+.review-result { padding: .9rem; border: 1px solid var(--line); border-radius: .75rem; overflow-wrap: anywhere; }
+.review-result p { margin-top: .45rem; }
+.review-result h3 { margin: 0; }
+.review-evidence { display: grid; gap: .65rem; }
+.review-evidence details { border-top: 1px solid var(--line); padding-top: .55rem; }
+.review-evidence details > p, .review-evidence details > ul { margin-top: .45rem; }

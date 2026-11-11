@@ -2,6 +2,8 @@ import { today } from '../nutrition/core.js';
 import { brief, format, money, expenseTypes } from './domain.js';
 import { measurements, measurementText, newestMeasurements, providers } from './import-model.js';
 import { prompts } from './coach.js';
+import { bodyEvidence, consistencyEvidence, foodEvidence, liftEvidence, nutritionEvidence, reviewFindings,
+  reviewPeriods, reviewQuestions } from './progress-review.js';
 import { icon } from './shell.js';
 import { dateText, kinds, profileFields, templates } from './records.js';
 
@@ -209,23 +211,55 @@ export function spending(workspace, data) {
     </div>`;
 }
 
-export function coach(workspace, model, busy) {
+function seeWhatWorked(review, selection, today) {
+  const list = items => '<ul class="import-list">' + items.map(text => '<li>' + escape(text) + '</li>').join('') + '</ul>';
+  const lifts = review.lifts.length ? list(review.lifts.map(lift => lift.name + ' · ' + liftEvidence(lift)))
+    : empty('No IronLog working sets in this period. Link IronLog or import a backup to track your lifts.');
+  return `<section class="card stack" id="see-what-worked" aria-labelledby="review-heading">
+    <div class="review-heading"><div><h2 id="review-heading">See what worked</h2>
+      <p class="muted">Compare your training, food logs, and body measurements over the same dates.</p></div>
+      <button type="button" class="btn secondary" data-action="review-chat">Ask about this period</button></div>
+    <div class="review-filters">
+      <label class="field">Period<select id="review-period" aria-label="Period">${Object.entries(reviewPeriods).map(([key, days]) =>
+        `<option value="${key}" ${key === selection.period ? 'selected' : ''}>${{ daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' }[key]} · ${days} ${days === 1 ? 'day' : 'days'}</option>`).join('')}</select></label>
+      <label class="field">End date<input id="review-end" type="date" max="${today}" value="${review.end}"></label>
+    </div>
+    <p class="field-help">${escape(review.range)} · Previous period ${escape(review.baseline)}</p>
+    <div class="review-grid">${reviewFindings(review).map(item => `<div class="review-result"><h3>${escape(item.title)}</h3>
+      <p class="muted">${escape(item.evidence)}</p><p>${escape(item.next)}</p></div>`).join('')}</div>
+    <div class="review-evidence">
+      <details class="import-details" open><summary>Workout and food consistency</summary>
+        <p class="muted">${escape(consistencyEvidence(review))}</p><p class="muted">${escape(nutritionEvidence(review))}</p></details>
+      <details class="import-details" open><summary>IronLog strength · ${review.lifts.length} lifts</summary>
+        ${lifts}<p class="field-help">Matches use the recorded exercise name. Compare sessions with the same setup and technique.</p></details>
+      <details class="import-details"><summary>Weight and body composition</summary>
+        ${review.body.length ? list(review.body.map(bodyEvidence)) : empty('No weight or body composition readings in this period.')}</details>
+      <details class="import-details"><summary>Foods on days you reached your protein target</summary>
+        ${review.foods.length ? list(review.foods.map(foodEvidence)) : empty('Add a protein target and mark food days complete to see these foods.')}</details>
+    </div>
+  </section>`;
+}
+
+export function coach(workspace, model, busy, review, selection, today) {
   const log = workspace.messages.length ? workspace.messages.map(item => `<div class="bubble ${item.role}"><small>${{ user: 'You', local: 'Local coach', model: 'Model reply' }[item.role]}</small>${escape(item.text)}</div>`).join('')
     : '<div class="bubble"><small>Local coach</small>I can review your diary, movement, plans, routines, or food spending. Pick a question to start.</div>';
   return `${pageHead('PERSONAL COACH', 'Coach', 'Get a read on your day using what you’ve recorded.')}
+     ${seeWhatWorked(review, selection, today)}
     <div class="split"><div class="pane">
       ${card('Conversation', 'History stays in this browser.', `<div class="stack">
       <div class="chat-log" role="log" aria-label="Coach conversation">${log}${busy ? '<p class="muted">Getting your reply…</p>' : ''}</div>
       <div class="chip-row">${prompts.map((prompt, index) => `<button type="button" data-action="prompt:${index}" ${busy ? 'disabled' : ''}>${prompt}</button>`).join('')}</div>
+      <div class="chip-row" aria-label="Progress questions">${reviewQuestions.map((prompt, index) =>
+        `<button type="button" data-action="review-question:${index}" ${busy ? 'disabled' : ''}>${prompt}</button>`).join('')}</div>
       <form class="chat-compose" id="coach-form"><label class="field">Ask the coach<input name="question" maxlength="500" placeholder="How is my day going?" required ${busy ? 'disabled' : ''}></label>
       <button type="submit" class="icon-btn" aria-label="Send question" ${busy ? 'disabled' : ''}>${icon('send')}</button></form>
-      ${model ? '<label class="option-check"><input type="checkbox" id="use-model"> Send this question and a workspace summary to OpenAI</label>' : '<p class="field-help">Local mode uses rules and your saved workspace data.</p>'}
+      ${model ? '<label class="option-check"><input type="checkbox" id="use-model"> Send general questions and a workspace summary to OpenAI</label>' : '<p class="field-help">Local mode uses rules and your saved workspace data.</p>'}
       </div>`, workspace.messages.length ? btn('Clear', 'clear-chat', 'trash', '') : '<span class="pill">On device</span>')}
       </div><div class="pane">
       ${card('Memory', 'Save habits and preferences you want the coach to use.', workspace.memory.length
         ? workspace.memory.map(item => record('memory', item, item.text, item.kind)).join('')
         : empty('Add a food preference, a training habit, or a routine note.'), btn('Add', 'add:memory'))}
-      ${card('What the coach can see', '', '<p class="muted">Daily nutrition totals, recent movement, meal plans, unchecked groceries and routines, monthly food spending, and notes you save in Memory.</p>')}
+      ${card('What the coach can see', '', '<p class="muted">IronLog working sets, workout and food consistency, body measurements, meal plans, spending, and saved memory. Progress questions use the selected period unless you name another period or date.</p>')}
     </div></div>`;
 }
 
