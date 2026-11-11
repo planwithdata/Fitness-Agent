@@ -270,6 +270,13 @@ function monthlyAdvice(review) {
   return null;
 }
 
+export function adviceForReview(workspace, diary, data, period, review) {
+  if (review.end !== data.day) return null;
+  if (period === 'weekly') return weeklyAdvice(review);
+  if (period === 'monthly') return monthlyAdvice(review);
+  return dailyAdvice(data, diary, progressReview(workspace, diary, 'weekly', data.day));
+}
+
 export function dashboardAdvice(workspace, diary, data) {
   const weekly = progressReview(workspace, diary, 'weekly', data.day);
   const monthly = progressReview(workspace, diary, 'monthly', data.day);

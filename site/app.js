@@ -4,7 +4,7 @@ import { calorieBackupState, calorieCounterUrl, createCalorieLink, latestDiaryDa
 import { createImports, importsPage } from './lib/imports-ui.js';
 import { calendarDate, ironLogPreference, ironLogStorageKey } from './lib/import-model.js';
 import { localReply, modelContext, prompts } from './lib/coach.js';
-import { dashboardAdvice, progressReply, progressReview, reviewPeriods, reviewQuestions } from './lib/progress-review.js';
+import { adviceForReview, dashboardAdvice, progressReply, progressReview, reviewPeriods, reviewQuestions } from './lib/progress-review.js';
 import { groceryDraft, snapshot } from './lib/domain.js';
 import { defaults, kinds, profileFields, readFields, templates, workspaceFromBackup } from './lib/records.js';
 import { loadWorkspace, openWorkspace, saveWorkspace } from './lib/storage.js';
@@ -72,7 +72,8 @@ function render() {
   }
   if (page === 'coach') {
     const review = progressReview(workspace, nutritionDiary(), reviewSelection.period, reviewSelection.end || lastDay);
-    main.innerHTML = coach(workspace, model, coachBusy, review, reviewSelection, lastDay);
+    const advice = adviceForReview(workspace, nutritionDiary(), data, reviewSelection.period, review);
+    main.innerHTML = coach(workspace, model, coachBusy, review, reviewSelection, lastDay, advice);
   }
   else if (page === 'imports') main.innerHTML = importsPage(state, imports.getInfo(), calorieLink.getInfo());
   else if (page === 'today') {

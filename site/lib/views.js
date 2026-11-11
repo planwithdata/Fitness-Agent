@@ -228,7 +228,13 @@ export function spending(workspace, data) {
     </div>`;
 }
 
-function seeWhatWorked(review, selection, today) {
+function seeWhatWorked(review, selection, today, advice) {
+  const findings = reviewFindings(review, { includeFallback: !advice });
+  if (advice) {
+    const duplicate = findings.findIndex(item => item.title === advice.title);
+    if (duplicate >= 0) findings.splice(duplicate, 1);
+    findings.unshift(advice);
+  }
   const list = items => '<ul class="import-list">' + items.map(text => '<li>' + escape(text) + '</li>').join('') + '</ul>';
   const lifts = review.lifts.length ? list(review.lifts.map(lift => lift.name + ' · ' + liftEvidence(lift)))
     : empty('No IronLog working sets in this period. Link IronLog or import a backup to track your lifts.');
@@ -242,7 +248,7 @@ function seeWhatWorked(review, selection, today) {
       <label class="field">End date<input id="review-end" type="date" max="${today}" value="${review.end}"></label>
     </div>
     <p class="field-help">${escape(review.range)} · Previous period ${escape(review.baseline)}</p>
-    <div class="review-grid">${reviewFindings(review).map(item => `<div class="review-result"><h3>${escape(item.title)}</h3>
+    <div class="review-grid">${findings.map(item => `<div class="review-result"><h3>${escape(item.title)}</h3>
       <p class="muted">${escape(item.evidence)}</p><p>${escape(item.next)}</p></div>`).join('')}</div>
     <div class="review-evidence">
       <details class="import-details" open><summary>Workout and food consistency</summary>
@@ -257,11 +263,11 @@ function seeWhatWorked(review, selection, today) {
   </section>`;
 }
 
-export function coach(workspace, model, busy, review, selection, today) {
+export function coach(workspace, model, busy, review, selection, today, advice) {
   const log = workspace.messages.length ? workspace.messages.map(item => `<div class="bubble ${item.role}"><small>${{ user: 'You', local: 'Local coach', model: 'Model reply' }[item.role]}</small>${escape(item.text)}</div>`).join('')
     : '<div class="bubble"><small>Local coach</small>I can review your diary, movement, plans, routines, or food spending. Pick a question to start.</div>';
   return `${pageHead('PERSONAL COACH', 'Coach', 'Get a read on your day using what you’ve recorded.')}
-     ${seeWhatWorked(review, selection, today)}
+     ${seeWhatWorked(review, selection, today, advice)}
     <div class="split"><div class="pane">
       ${card('Conversation', 'History stays in this browser.', `<div class="stack">
       <div class="chat-log" role="log" aria-label="Coach conversation">${log}${busy ? '<p class="muted">Getting your reply…</p>' : ''}</div>

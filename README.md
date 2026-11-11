@@ -15,7 +15,7 @@ A private, iPhone-first workspace for nutrition, workouts, meal planning, grocer
 
 On iPhone, open Fitness Agent in Safari and choose **Share → Add to Home Screen**. Once Settings shows **Ready for offline use**, the main workspace and food diary can open without a network connection. Check-ins are shown inside the app.
 
-**Today** shows Coach advice based on the current day, the last seven days, and the last thirty days. Each suggestion opens its matching review. Advice refreshes as linked or local logs update.
+**Today** shows Coach advice based on the current day, the last seven days, and the last thirty days. Each suggestion opens its matching review in Coach, where it also appears with the period’s evidence. Advice refreshes as linked or local logs update.
 
 ## See what worked
 
