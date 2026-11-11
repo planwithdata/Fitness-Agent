@@ -4,7 +4,7 @@ import { calorieBackupState, calorieCounterUrl, createCalorieLink, latestDiaryDa
 import { createImports, importsPage } from './lib/imports-ui.js';
 import { calendarDate, ironLogPreference, ironLogStorageKey } from './lib/import-model.js';
 import { localReply, modelContext, prompts } from './lib/coach.js';
-import { progressReply, progressReview, reviewPeriods, reviewQuestions } from './lib/progress-review.js';
+import { dashboardAdvice, progressReply, progressReview, reviewPeriods, reviewQuestions } from './lib/progress-review.js';
 import { groceryDraft, snapshot } from './lib/domain.js';
 import { defaults, kinds, profileFields, readFields, templates, workspaceFromBackup } from './lib/records.js';
 import { loadWorkspace, openWorkspace, saveWorkspace } from './lib/storage.js';
@@ -75,7 +75,10 @@ function render() {
     main.innerHTML = coach(workspace, model, coachBusy, review, reviewSelection, lastDay);
   }
   else if (page === 'imports') main.innerHTML = importsPage(state, imports.getInfo(), calorieLink.getInfo());
-  else if (page === 'today') main.innerHTML = dashboard(workspace, data, calorieLink.getInfo().status);
+  else if (page === 'today') {
+    const advice = dashboardAdvice(workspace, nutritionDiary(), data);
+    main.innerHTML = dashboard(workspace, data, calorieLink.getInfo().status, advice);
+  }
   else if (page === 'workout') main.innerHTML = workouts(workspace, data, imports.isLinked);
   else main.innerHTML = views[page](workspace, data, planDate);
   if (page === 'coach') {
@@ -260,6 +263,12 @@ async function importCalorieBackup(file) {
 
 const actions = {
   ...imports.actions,
+  'advice-review': period => {
+    if (!Object.hasOwn(reviewPeriods, period)) return;
+    reviewSelection.period = period;
+    reviewSelection.end = '';
+    location.hash = 'coach';
+  },
   'review-chat': () => $('#coach-form input')?.focus(),
   'review-question': index => ask(reviewQuestions[index]),
   'pick-calorie-backup': () => $('#calorie-backup-file').click(),
@@ -414,6 +423,9 @@ window.addEventListener('storage', event => {
 });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshSources(); });
 broadcast?.addEventListener('message', refresh);
+setInterval(() => {
+  if (!document.hidden && state && route() === 'today' && lastDay !== today()) render();
+}, 60000);
 
 async function start() {
   renderShell(route());

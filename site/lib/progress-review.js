@@ -169,7 +169,7 @@ export function bodyEvidence(item) {
   return sample + ` Average ${decimal(item.average)}${unit} vs ${decimal(item.previousAverage)}${unit} across ${item.count} and ${item.previousCount} reading days (${delta(item.average - item.previousAverage)}${changeUnit}).`;
 }
 
-export function reviewFindings(review) {
+export function reviewFindings(review, { includeFallback = true } = {}) {
   const findings = [];
   const improved = review.lifts.find(lift => lift.change?.value > 0);
   if (improved) {
@@ -186,7 +186,7 @@ export function reviewFindings(review) {
     const proteinChange = food.protein - priorFood.protein;
     const workoutChange = review.workoutDays - review.priorWorkoutDays;
     if (Math.abs(proteinChange) >= 5 || workoutChange) {
-      findings.push({ title: 'What changed alongside the lift',
+      findings.push({ type: 'lift-context', title: 'What changed alongside the lift',
         evidence: `Workout days moved from ${review.priorWorkoutDays} to ${review.workoutDays}. Average protein moved from ${decimal(priorFood.protein)} to ${decimal(food.protein)} g, based on ${priorFood.proteinDays} and ${food.proteinDays} complete days. These changes give you two things to check against future sessions.`,
         next: 'Keep your exercise setup steady and compare the next few sessions under a similar routine.' });
     }
@@ -206,13 +206,75 @@ export function reviewFindings(review) {
     findings.push({ title: 'A repeatable protein source', evidence: foodEvidence(repeated),
       next: 'If it fits your routine, repeat the logged portion and see whether it remains a useful way to meet your target.' });
   }
-  if (!findings.length) findings.push({ title: 'Build a comparison', evidence: 'A repeat lift, complete food days, and repeated weigh-ins give Coach more evidence to work with.',
+  if (!findings.length && includeFallback) findings.push({ title: 'Build a comparison', evidence: 'A repeat lift, complete food days, and repeated weigh-ins give Coach more evidence to work with.',
     next: 'Choose one lift to repeat and mark food days complete when you have finished logging.' });
   return findings;
 }
 
 export function foodEvidence(food) {
   return `${food.name} contributed about ${decimal(food.average)} g protein per day it appeared, across ${food.count} days that reached your target.`;
+}
+
+function dailyAdvice(data, diary, weekly) {
+  const lift = weekly.lifts.find(item => item.date === data.day && item.change?.value > 0);
+  if (lift) return { title: `Repeat your ${lift.name} setup`, evidence: liftEvidence(lift),
+    next: 'Use the same setup next time to check whether the improvement holds.' };
+  if (!data.foods && data.workouts.some(workout => workout.date === data.day)) {
+    return { title: 'Pair today’s workout with a food log', evidence: 'You have a workout logged for today.',
+      next: 'Add the meals you ate so Coach can compare nutrition on similar training days.' };
+  }
+  if (!data.foods) return null;
+  const protein = data.totals.protein;
+  if (protein.known < data.foods) {
+    return { title: 'Check the protein values in today’s log',
+      evidence: `${protein.known} of ${data.foods} food entries have a protein value.`,
+      next: 'Add values from the label or recipe where you have them.' };
+  }
+  if (data.proteinTarget && protein.value >= data.proteinTarget) {
+    return { title: 'Save a meal that helped you reach your protein target',
+      evidence: `You’ve logged ${decimal(protein.value)} g protein against your ${decimal(data.proteinTarget)} g target.`,
+      next: 'Save a meal you’d happily eat again so it’s easy to repeat.' };
+  }
+  if (diary.completed[data.day] && data.proteinTarget) {
+    return { title: 'Plan a familiar protein source for tomorrow',
+      evidence: `Your complete food log shows ${decimal(protein.value)} g protein against your ${decimal(data.proteinTarget)} g target.`,
+      next: weekly.foods.length ? 'Use a meal from a day you reached your target as a starting point.'
+        : 'Review the protein values for your usual meals when you plan tomorrow.' };
+  }
+  if (!diary.completed[data.day]) {
+    return { title: 'Finish today’s food log', evidence: `You’ve logged ${data.foods} food entries today.`,
+      next: 'Mark the day complete once you’ve recorded what you ate so it can count toward your averages.' };
+  }
+  return null;
+}
+
+function weeklyAdvice(review) {
+  const findings = reviewFindings(review, { includeFallback: false });
+  if (findings.length) return findings.find(item => item.type === 'lift-context') ?? findings[0];
+  if (review.food.logged) return { title: 'Build a repeatable food logging routine', evidence: consistencyEvidence(review),
+    next: 'Choose a meal you already eat regularly and use it as the cue to finish logging that day.' };
+  if (review.workoutDays) return { title: 'Repeat one logged workout', evidence: consistencyEvidence(review),
+    next: review.lifts.length ? 'Use the same setup and record weight and reps so Coach has comparable sets next week.'
+      : 'Choose a session you can repeat and log it when complete.' };
+  return null;
+}
+
+function monthlyAdvice(review) {
+  const body = review.body.find(item => item.kind === 'weight' && item.count >= 2 && item.previousCount >= 2);
+  if (body) return { title: 'Review your weight trend alongside training', evidence: bodyEvidence(body)
+    + ` You logged workouts on ${review.workoutDays} days, compared with ${review.priorWorkoutDays} in the previous period.`,
+    next: 'Keep your weigh-in conditions consistent and review the next 30 days alongside your lift progress.' };
+  if (review.food.logged || review.workoutDays) return { title: 'Pick one habit to carry into the next month',
+    evidence: consistencyEvidence(review),
+    next: 'Choose a repeatable workout day or a regular time to finish your food log. Check how often it happens next month.' };
+  return null;
+}
+
+export function dashboardAdvice(workspace, diary, data) {
+  const weekly = progressReview(workspace, diary, 'weekly', data.day);
+  const monthly = progressReview(workspace, diary, 'monthly', data.day);
+  const advice = { daily: dailyAdvice(data, diary, weekly), weekly: weeklyAdvice(weekly), monthly: monthlyAdvice(monthly) };
+  return Object.entries(advice).flatMap(([period, item]) => item ? [{ period, ...item }] : []);
 }
 
 export function progressReply(question, workspace, diary, selection, today) {

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { emptyState, shiftDay } from '../site/nutrition/core.js';
-import { emptyWorkspace } from '../site/lib/domain.js';
-import { bodyEvidence, liftEvidence, progressReply, progressReview, reviewFindings } from '../site/lib/progress-review.js';
+import { emptyWorkspace, snapshot } from '../site/lib/domain.js';
+import { bodyEvidence, dashboardAdvice, liftEvidence, progressReply, progressReview, reviewFindings } from '../site/lib/progress-review.js';
 
 const end = '2026-11-11';
 const day = offset => shiftDay(end, offset);
@@ -55,4 +55,31 @@ test('body trends use one reading per day from the same source and daily uses pr
   assert.match(progressReply('How many workouts last week?', workspace, diary, { period: 'daily', end }, end), /29 Oct 2026.*4 Nov 2026/);
   assert.equal(progressReply('What is my food budget this month?', workspace, diary, { period: 'weekly', end }, end), null);
   assert.equal(progressReply('What should I cook?', workspace, diary, { period: 'weekly', end }, end), null);
+});
+
+
+test('dashboard advice uses the active diary and keeps partial days out of target shortfalls', () => {
+  const workspace = emptyWorkspace(), diary = emptyState();
+  assert.deepEqual(dashboardAdvice(workspace, diary, snapshot(workspace, diary, end)), []);
+  diary.settings.protein = 70;
+  food(diary, 0, 40, false);
+  const advice = () => dashboardAdvice(workspace, diary, snapshot(workspace, diary, end));
+  assert.equal(advice()[0].title, 'Finish today’s food log');
+  diary.completed[end] = true;
+  assert.equal(advice()[0].title, 'Plan a familiar protein source for tomorrow');
+  diary.entries[0].nutrients.protein = 80;
+  assert.equal(advice()[0].title, 'Save a meal that helped you reach your protein target');
+  delete diary.entries[0].nutrients.protein;
+  assert.match(advice()[0].evidence, /0 of 1 food entries/);
+  assert.deepEqual(advice().map(item => item.period), ['daily', 'weekly', 'monthly']);
+});
+
+test('monthly advice uses enough same-source readings and includes workout consistency', () => {
+  const workspace = emptyWorkspace(), diary = emptyState();
+  workspace.health = [-45, -32, -20, -2].map((offset, index) => ({
+    id: String(index), kind: 'weight', source: 'DrTrust', provider: 'drtrust', date: day(offset), value: 80 - index,
+  }));
+  const [item] = dashboardAdvice(workspace, diary, snapshot(workspace, diary, end));
+  assert.equal(item.period, 'monthly');
+  assert.match(item.evidence, /DrTrust.*Average 77.5 kg vs 79.5 kg.*workouts on 0 days/);
 });

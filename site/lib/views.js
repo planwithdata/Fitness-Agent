@@ -58,7 +58,23 @@ function calorieChart(data) {
       : 'Log a meal to start your trend. Empty days appear as dashes.'}</p>`;
 }
 
-export function dashboard(workspace, data, calorieStatus) {
+function coachAdvice(advice) {
+  const periodLabel = { daily: 'Today', weekly: 'Last 7 days', monthly: 'Last 30 days' };
+  const items = advice.map(item => `<article class="review-result">
+    <span class="field-help">${periodLabel[item.period]}</span>
+    <h3>${escape(item.title)}</h3>
+    <p class="muted">${escape(item.evidence)}</p>
+    <p>${escape(item.next)}</p>
+    ${btn('See the review', 'advice-review:' + item.period, 'arrow', 'secondary')}
+  </article>`);
+  return `<section class="card coach-advice" aria-labelledby="advice-heading">
+    <div class="card-head"><div><h2 id="advice-heading">Coach advice</h2><p>Based on your recent logs</p></div></div>
+    ${items.length ? `<div class="review-grid">${items.join('')}</div>`
+      : empty('Log a meal or workout to get a suggestion here.')}
+  </section>`;
+}
+
+export function dashboard(workspace, data, calorieStatus, advice) {
   const { totals, foods, calorieTarget, proteinTarget, minutes, spent, meals, groceries, routines } = data;
   const name = workspace.profile.name;
   const dateLabel = dayDate(data.day).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -73,6 +89,7 @@ export function dashboard(workspace, data, calorieStatus) {
     <h2 id="brief-title">Your day, in focus.</h2><p>${escape(brief(data, workspace))}</p>
     ${link('Open coach', '#coach', 'btn')}</div>
   </section>
+  ${coachAdvice(advice)}
   <div class="section-bar"><h2>At a glance</h2><p>Updated from your workspace</p></div>
   <div class="metrics">
     ${metric({ label: 'Calories', value: foods ? format(totals.kcal.value) : '—', unit: 'kcal', note: calorieTarget ? `of ${format(calorieTarget)} daily` : 'Today’s diary', symbol: 'fire', tone: 'orange', url: './nutrition/#diary' })}

@@ -209,6 +209,9 @@ hr { width: 100%; border: 0; border-top: 1px solid var(--line); }
 .review-result { padding: .9rem; border: 1px solid var(--line); border-radius: .75rem; overflow-wrap: anywhere; }
 .review-result p { margin-top: .45rem; }
 .review-result h3 { margin: 0; }
+.coach-advice { margin-top: 1rem; }
+.coach-advice .review-result h3 { margin-top: .35rem; }
+.coach-advice .btn { margin-top: .7rem; }
 .review-evidence { display: grid; gap: .65rem; }
 .review-evidence details { border-top: 1px solid var(--line); padding-top: .55rem; }
 .review-evidence details > p, .review-evidence details > ul { margin-top: .45rem; }
